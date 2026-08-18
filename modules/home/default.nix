@@ -16,7 +16,8 @@
     ./claude-code.nix
     ./apps.nix
     ./media.nix
-    ./discord.nix
+    ./vscodium.nix
+    # Discord: legcord (modules/nixos/gaming.nix), not upstream's vesktop.
   ];
 
   home.username = username;

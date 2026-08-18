@@ -39,9 +39,6 @@
     interactiveShellInit = ''
       # Keep fish inside `nix-shell` instead of falling back to bash.
       ${pkgs.any-nix-shell}/bin/any-nix-shell fish | source
-
-      # fish prints a welcome banner on every new terminal; we have starship.
-      set -g fish_greeting
     '';
   };
 }

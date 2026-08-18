@@ -91,12 +91,19 @@
       "Mod+Shift+T".action.toggle-window-floating = {};
       "Mod+D".action.toggle-overview = {};
 
-      # Noctalia clipboard history.
+      # Noctalia panels. Panel names follow the launcher binding above; confirm
+      # with `noctalia msg --help` if either stops opening.
       "Mod+V".action.spawn = [
         "noctalia"
         "msg"
         "panel-toggle"
         "clipboard"
+      ];
+      "Mod+X".action.spawn = [
+        "noctalia"
+        "msg"
+        "panel-toggle"
+        "powermenu"
       ];
 
       # Focus
@@ -105,13 +112,15 @@
       "Mod+J".action.focus-window-down = {};
       "Mod+K".action.focus-window-up = {};
 
-      # Same movement on the arrow keys: left/right across columns, up/down
-      # across workspaces, Ctrl+Mod across monitors (the pointer follows,
-      # see warp-mouse-to-focus above).
+      # Arrows mirror hjkl: movement stays *inside* the workspace. Switching
+      # workspaces is Mod+1..5 further down, not Mod+Up/Down.
       "Mod+Left".action.focus-column-left = {};
       "Mod+Right".action.focus-column-right = {};
-      "Mod+Up".action.focus-workspace-up = {};
-      "Mod+Down".action.focus-workspace-down = {};
+      "Mod+Up".action.focus-window-up = {};
+      "Mod+Down".action.focus-window-down = {};
+
+      # Ctrl moves focus across monitors (the pointer follows — see
+      # warp-mouse-to-focus above).
       "Ctrl+Mod+Left".action.focus-monitor-left = {};
       "Ctrl+Mod+Right".action.focus-monitor-right = {};
 
@@ -121,11 +130,21 @@
       # the built-in switcher, since niri binds it by default.
       "Alt+Tab".action.focus-window-previous = {};
 
-      # Move
+      # Move — inside the workspace
       "Mod+Shift+H".action.move-column-left = {};
       "Mod+Shift+L".action.move-column-right = {};
       "Mod+Shift+J".action.move-window-down = {};
       "Mod+Shift+K".action.move-window-up = {};
+      "Mod+Shift+Left".action.move-column-left = {};
+      "Mod+Shift+Right".action.move-column-right = {};
+      "Mod+Shift+Down".action.move-window-down = {};
+      "Mod+Shift+Up".action.move-window-up = {};
+
+      # Move — to another monitor, following the physical layout
+      "Mod+Ctrl+Shift+Left".action.move-window-to-monitor-left = {};
+      "Mod+Ctrl+Shift+Right".action.move-window-to-monitor-right = {};
+      "Mod+Ctrl+Shift+Up".action.move-window-to-monitor-up = {};
+      "Mod+Ctrl+Shift+Down".action.move-window-to-monitor-down = {};
 
       # Sizing
       "Mod+R".action.switch-preset-column-width = {};

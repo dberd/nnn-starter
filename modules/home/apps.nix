@@ -61,6 +61,21 @@
   # Folders open in Nautilus (the portal file picker relies on this too).
   xdg.mimeApps.defaultApplications."inode/directory" = "org.gnome.Nautilus.desktop";
 
+  # The snx-rs package builds its GTK tray app (gtk4 + kstatusnotifieritem are
+  # in its buildInputs) but ships no .desktop file — cargo doesn't install one
+  # and nixpkgs' package.nix has no postInstall for it. Without this the VPN
+  # client simply doesn't appear in the app list.
+  xdg.desktopEntries.snx-rs-gui = {
+    name = "SNX-RS VPN";
+    genericName = "VPN Client";
+    comment = "Check Point VPN client";
+    exec = "snx-rs-gui";
+    icon = "network-vpn";
+    terminal = false;
+    type = "Application";
+    categories = ["Network" "Security"];
+  };
+
   # Zen browser — Firefox-based, from the community flake (beta channel).
   # Managed through the flake's home-manager module (rather than just dropping
   # the package in home.packages) so that:

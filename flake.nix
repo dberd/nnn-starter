@@ -22,6 +22,12 @@
     # rebuild it against a different nixpkgs and miss the cache.
     noctalia.url = "github:noctalia-dev/noctalia-shell/cachix";
 
+    # greetd greeter matching Noctalia. It IS in nixpkgs, but not yet in the
+    # revision our lock pins, and bumping nixpkgs wholesale for one package
+    # would rebuild half the world — so it comes from its own flake instead.
+    # Left to bring its own nixpkgs, for the same cache reason as niri/noctalia.
+    noctalia-greeter.url = "github:noctalia-dev/noctalia-greeter";
+
     # System-wide base16 theming.
     stylix = {
       url = "github:nix-community/stylix";
@@ -44,6 +50,7 @@
     home-manager,
     niri,
     noctalia,
+    noctalia-greeter,
     stylix,
     ...
   } @ inputs: let
@@ -61,6 +68,7 @@
         modules = [
           niri.nixosModules.niri
           noctalia.nixosModules.default
+          noctalia-greeter.nixosModules.default
           stylix.nixosModules.stylix
           home-manager.nixosModules.home-manager
 
@@ -72,7 +80,7 @@
             nixpkgs.config.allowUnfree = true;
             # Vesktop builds Vencord with pnpm, which nixpkgs currently marks
             # insecure. It's a build-time tool only; allow it by name so the rule
-            # survives pnpm version bumps. (See modules/home/discord.nix.)
+            # survives pnpm version bumps.
             #
             # Note: defining this predicate replaces permittedInsecurePackages
             # entirely — any future exception has to be added here.

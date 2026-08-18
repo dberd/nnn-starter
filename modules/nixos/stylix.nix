@@ -5,14 +5,18 @@
     enable = true;
     polarity = "dark";
 
-    # Kanagawa, vendored in-repo so the build never depends on whatever version
-    # of `base16-schemes` happens to be pinned. To use an upstream scheme
-    # instead: stylix.base16Scheme = "${pkgs.base16-schemes}/share/themes/kanagawa.yaml";
-    base16Scheme = ../../themes/kanagawa.yaml;
-
-    # "Static mind, like the sea" (静心如海) — a meditating pepe before Hokusai's
-    # Great Wave off Kanagawa, vendored in-repo (pngquant-optimized).
-    image = ../../themes/wallpaper.png;
+    # No base16Scheme on purpose: with it unset Stylix derives the palette from
+    # `image` below, so its colours agree with the ones Noctalia generates from
+    # the same wallpaper (see modules/home/noctalia.nix). The vendored
+    # themes/kanagawa.yaml stays in the repo as a fallback — set
+    #   base16Scheme = ../../themes/kanagawa.yaml;
+    # to go back to a fixed palette.
+    #
+    # Caveat worth knowing: Stylix computes this at BUILD time while Noctalia
+    # recomputes at runtime. Swap the wallpaper live and Noctalia follows
+    # immediately, but Stylix-themed apps (GTK, Qt, neovim, zed) only catch up
+    # on the next `nixos-rebuild switch`.
+    image = ../../themes/wallpapers/kanagawa-wave.png;
 
     # A hint of terminal transparency for that layered desktop look.
     opacity.terminal = 0.95;

@@ -48,16 +48,17 @@
   # NOTE: do NOT set GDK_BACKEND globally — that breaks the screencast portal.
   environment.sessionVariables.NIXOS_OZONE_WL = "1";
 
-  # Minimal graphical login: tuigreet drops you straight into a niri session.
-  # Flip `services.greetd.settings.default_session.user` to your username and
-  # set `initial_session` instead of `default_session` to autologin.
-  services.greetd = {
-    enable = true;
-    settings.default_session = {
-      command = "${pkgs.tuigreet}/bin/tuigreet --time --remember --cmd niri-session";
-      user = "greeter";
-    };
-  };
+  # Login screen: noctalia-greeter instead of tuigreet. tuigreet draws into the
+  # console framebuffer and knows nothing about monitor layout or per-output
+  # scaling, which is why the 2560x1440 panel came out cropped. This one gets
+  # that geometry declaratively (see hosts/nnn-desktop/default.nix) and shares
+  # Noctalia's visual language, so login, lock screen and desktop match.
+  #
+  # Its module sets services.greetd.enable and the session command itself, both
+  # with mkDefault — so do NOT set `command` here, a plain assignment would
+  # override it and put tuigreet back.
+  programs.noctalia-greeter.enable = true;
+  services.greetd.settings.default_session.user = "greeter";
 
   # Brightness keys are handled by brightnessctl (installed in desktop.nix),
   # which talks to logind and needs no extra privileges in a session.

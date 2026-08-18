@@ -10,6 +10,21 @@
   networking.hostName = local.hostName;
   time.timeZone = local.timeZone;
 
+  # Login screen geometry. The greeter runs its own tiny wlroots compositor and
+  # has no way to know the layout, so it is stated here — this is what keeps the
+  # 2560x1440 panel from being cropped, and it mirrors local.monitors.
+  #
+  # Everything else (palette, wallpaper, font) can be pushed over from the shell
+  # with Settings -> Security -> Noctalia Greeter -> Sync Now, or Auto-Sync.
+  # Keys set here live in greeter.toml and always win over anything Sync writes.
+  programs.noctalia-greeter.settings = {
+    session.default = "niri";
+    output = {
+      layout = "HDMI-A-2:0,0; DP-2:1920,0";
+      scales = "HDMI-A-2:1; DP-2:1.2";
+    };
+  };
+
   # btrfs mount options. nixos-generate-config only emits `subvol=`, dropping
   # everything else the filesystem was mounted with, so they are restated here
   # instead of in the generated hardware-configuration.nix — that file gets
