@@ -1,4 +1,14 @@
-{...}: {
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}: let
+  # Throne's local HTTP inbound. NekoRay-lineage defaults are 2080 (SOCKS) and
+  # 2081 (HTTP) — check Throne → Preferences → Inbound and adjust if yours
+  # differs, otherwise claude will fail to reach anything.
+  proxyPort = 2081;
+in {
   # Claude Code — Anthropic's official CLI (binary: `claude`). Marked unfree, so
   # it relies on the allowUnfree set in flake.nix.
   #
@@ -8,4 +18,34 @@
   # .agents, .commands, .mcpServers, … (see the home-manager module docs) — the
   # settings.json file is only written once you provide some.
   programs.claude-code.enable = true;
+
+  # Confine Claude Code's traffic to the proxy tunnel: if Throne isn't running,
+  # nothing is listening on the port and connections are refused rather than
+  # falling back to the plain uplink. Shadowing the command (rather than adding
+  # a second one) means this also covers the VSCodium extension, which spawns
+  # the CLI as a child process and inherits the environment.
+  #
+  # This is application-level, not packet-level: it relies on Claude Code
+  # honouring the proxy variables. The kernel-level alternative would need a
+  # stable selector — nftables resolves cgroup paths when the rule is loaded, so
+  # a transient systemd scope cannot be matched, and uid/gid selectors would
+  # mean either a separate account or a setuid sg wrapper.
+  #
+  # hiPrio resolves the profile collision with the package the module above
+  # installs; finalPackage is that same module's wrapped build, so settings and
+  # plugins are preserved.
+  home.packages = [
+    (lib.hiPrio (pkgs.writeShellScriptBin "claude" ''
+      export HTTPS_PROXY="http://127.0.0.1:${toString proxyPort}"
+      export HTTP_PROXY="$HTTPS_PROXY"
+      # These variables are inherited by everything claude spawns — git, npm,
+      # MCP servers. Corporate hosts must stay out of the proxy: they are
+      # reached through the snx tunnel (see modules/nixos/vpn.nix), and loopback
+      # obviously shouldn't round-trip either.
+      export NO_PROXY="localhost,127.0.0.1,::1,.efko.ru,.local"
+      export no_proxy="$NO_PROXY"
+
+      exec ${config.programs.claude-code.finalPackage}/bin/claude "$@"
+    ''))
+  ];
 }
