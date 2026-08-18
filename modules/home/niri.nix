@@ -91,8 +91,9 @@
       "Mod+Shift+T".action.toggle-window-floating = {};
       "Mod+D".action.toggle-overview = {};
 
-      # Noctalia panels. Panel names follow the launcher binding above; confirm
-      # with `noctalia msg --help` if either stops opening.
+      # Noctalia panels. Valid ids, per `noctalia msg panel-toggle <bad-id>`:
+      # clipboard, control-center, launcher, polkit, session, setup-wizard,
+      # test, tray-drawer, wallpaper. The power menu is `session`.
       "Mod+V".action.spawn = [
         "noctalia"
         "msg"
@@ -103,7 +104,7 @@
         "noctalia"
         "msg"
         "panel-toggle"
-        "powermenu"
+        "session"
       ];
 
       # Focus
