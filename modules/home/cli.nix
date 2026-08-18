@@ -24,20 +24,19 @@
 
   programs.fzf = {
     enable = true;
-    enableZshIntegration = true;
+    enableFishIntegration = true;
     defaultCommand = "fd --type f --hidden --exclude .git";
   };
 
   programs.zoxide = {
     enable = true;
-    enableZshIntegration = true;
+    enableFishIntegration = true;
     options = ["--cmd cd"]; # `cd` becomes smart, keeps muscle memory.
   };
-  # home-manager loads `zoxide init` near the top of .zshrc, but direnv
-  # inits afterwards and re-touches chpwd_functions. zoxide's startup "doctor"
-  # heuristic wants to be initialized last, so it prints a one-off
-  # "possible configuration issue" warning even though the hook is registered
-  # and tracking works fine. Silence the false positive.
+  # home-manager loads `zoxide init` early in the shell init, but direnv hooks
+  # in afterwards. zoxide's startup "doctor" heuristic wants to be initialized
+  # last, so it prints a one-off "possible configuration issue" warning even
+  # though the hook is registered and tracking works fine. Silence it.
   home.sessionVariables._ZO_DOCTOR = "0";
 
   programs.tealdeer = {
@@ -57,6 +56,8 @@
     procs # process viewer (ps replacement)
     bandwhich # per-process bandwidth
     gping # ping with a graph
+    traceroute
+    less # explicit: bat replaces `cat`, but pagers still shell out to less
 
     # data / misc
     yq-go # yaml/json/xml processor
@@ -73,6 +74,6 @@
   # wherever you keep this flake checked out.
   programs.nh = {
     enable = true;
-    flake = "/home/${username}/nnn-starter";
+    flake = "/home/${username}/nixos-config";
   };
 }

@@ -47,14 +47,56 @@
     stylix,
     ...
   } @ inputs: let
-    # The platform the NNN machine runs on.
-    hostSystem = "x86_64-linux";
+    # Build one nixosConfiguration from hosts/<name>/. Everything machine-local
+    # (username, hostname, timezone, monitors) comes from that host's local.nix,
+    # so adding a machine is: create hosts/<name>/{default,local}.nix +
+    # hardware-configuration.nix, then one line in nixosConfigurations below.
+    mkHost = hostName: let
+      local = import ./hosts/${hostName}/local.nix;
+      inherit (local) username;
+    in
+      nixpkgs.lib.nixosSystem {
+        system = local.system or "x86_64-linux";
+        specialArgs = {inherit inputs username local;};
+        modules = [
+          niri.nixosModules.niri
+          noctalia.nixosModules.default
+          stylix.nixosModules.stylix
+          home-manager.nixosModules.home-manager
 
-    # Personal, machine-local settings. Tracked with placeholder defaults but
-    # marked skip-worktree so your real values never get committed:
-    #   git update-index --skip-worktree local.nix
-    local = import ./local.nix;
-    inherit (local) username;
+          ./hosts/common
+          ./hosts/${hostName}
+          ./modules/nixos
+
+          {
+            nixpkgs.config.allowUnfree = true;
+            # Vesktop builds Vencord with pnpm, which nixpkgs currently marks
+            # insecure. It's a build-time tool only; allow it by name so the rule
+            # survives pnpm version bumps. (See modules/home/discord.nix.)
+            #
+            # Note: defining this predicate replaces permittedInsecurePackages
+            # entirely — any future exception has to be added here.
+            nixpkgs.config.allowInsecurePredicate = pkg: nixpkgs.lib.getName pkg == "pnpm";
+            nixpkgs.overlays = [
+              niri.overlays.niri
+              noctalia.overlays.default
+            ];
+
+            home-manager.useGlobalPkgs = true;
+            home-manager.useUserPackages = true;
+            home-manager.backupFileExtension = "hm-bak";
+            home-manager.extraSpecialArgs = {inherit inputs username local;};
+            # niri-flake auto-imports its home modules (config + stylix) into
+            # every user when home-manager runs as a NixOS module, so we only
+            # add noctalia's here. Importing the niri ones again double-declares
+            # `programs.niri.finalConfig`.
+            home-manager.sharedModules = [
+              noctalia.homeModules.default
+            ];
+            home-manager.users.${username} = import ./modules/home;
+          }
+        ];
+      };
 
     # Helper so `nix fmt` / `nix develop` work from macOS or Linux.
     devSystems = [
@@ -66,43 +108,9 @@
     forAllSystems = nixpkgs.lib.genAttrs devSystems;
     pkgsFor = system: nixpkgs.legacyPackages.${system};
   in {
-    nixosConfigurations.nnn = nixpkgs.lib.nixosSystem {
-      system = hostSystem;
-      specialArgs = {inherit inputs username local;};
-      modules = [
-        niri.nixosModules.niri
-        noctalia.nixosModules.default
-        stylix.nixosModules.stylix
-        home-manager.nixosModules.home-manager
-
-        ./hosts/nnn
-        ./modules/nixos
-
-        {
-          nixpkgs.config.allowUnfree = true;
-          # Vesktop builds Vencord with pnpm, which nixpkgs currently marks
-          # insecure. It's a build-time tool only; allow it by name so the rule
-          # survives pnpm version bumps. (See modules/home/discord.nix.)
-          nixpkgs.config.allowInsecurePredicate = pkg: nixpkgs.lib.getName pkg == "pnpm";
-          nixpkgs.overlays = [
-            niri.overlays.niri
-            noctalia.overlays.default
-          ];
-
-          home-manager.useGlobalPkgs = true;
-          home-manager.useUserPackages = true;
-          home-manager.backupFileExtension = "hm-bak";
-          home-manager.extraSpecialArgs = {inherit inputs username local;};
-          # niri-flake auto-imports its home modules (config + stylix) into
-          # every user when home-manager runs as a NixOS module, so we only
-          # add noctalia's here. Importing the niri ones again double-declares
-          # `programs.niri.finalConfig`.
-          home-manager.sharedModules = [
-            noctalia.homeModules.default
-          ];
-          home-manager.users.${username} = import ./modules/home;
-        }
-      ];
+    nixosConfigurations = {
+      nnn-desktop = mkHost "nnn-desktop";
+      # nnn-t480s = mkHost "nnn-t480s";   # ThinkPad T480s — see hosts/README
     };
 
     # `nix fmt`

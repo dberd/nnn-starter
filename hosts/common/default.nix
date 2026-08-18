@@ -1,12 +1,6 @@
-{local, ...}: {
-  imports = [
-    ./hardware-configuration.nix
-  ];
-
-  networking.hostName = local.hostName;
-
-  # ⇩ Timezone comes from local.nix; locale/keyboard layout below.
-  time.timeZone = local.timeZone;
+# Settings shared by every host. Anything that differs per machine (hostname,
+# timezone, hardware) lives in hosts/<name>/default.nix instead.
+{...}: {
   i18n.defaultLocale = "en_US.UTF-8";
 
   services.xserver.xkb = {

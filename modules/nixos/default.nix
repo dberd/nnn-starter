@@ -3,15 +3,18 @@
     ./boot.nix
     ./networking.nix
     ./audio.nix
-    ./hardware.nix
-    ./apple-studio-display.nix # optional: comment out if you have no Studio Display
     ./fonts.nix
     ./niri.nix
     ./noctalia.nix
     ./desktop.nix
     ./stylix.nix
     ./users.nix
+    ./dev.nix
+    ./vpn.nix
     ./docker.nix # optional: comment out if you don't want containers
+    # NOTE: hardware is per-host — each hosts/<name>/default.nix imports exactly
+    # one of ./hardware/{amd-desktop,intel-laptop}.nix. Same for ./gaming.nix
+    # (desktop only) and ./apple-studio-display.nix (unused here).
   ];
 
   # Flakes + the modern nix CLI.

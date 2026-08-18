@@ -24,10 +24,11 @@
       focus-follows-mouse.enable = true;
     };
 
-    # ⇩ EDIT ME: name your outputs (`niri msg outputs` lists them) for scale/pos.
-    outputs."eDP-1" = {
-      scale = local.monitorScale;
-    };
+    # Per-output mode/scale/position, declared in hosts/<host>/local.nix.
+    # (Upstream had a single `monitorScale` scalar; this desktop has two panels
+    # at different resolutions AND different scales, so it has to be per-output.)
+    # Run `niri msg outputs` to see the names and current values.
+    outputs = local.monitors;
 
     layout = {
       gaps = 12;
@@ -62,6 +63,7 @@
     binds = {
       # Launchers
       "Mod+Return".action.spawn = "ghostty";
+      "Mod+T".action.spawn = "ghostty"; # same terminal, second muscle memory
       # Noctalia v5 IPC: `noctalia msg <command>` (the old `ipc call` form and
       # the `noctalia-shell` binary are gone). The launcher is a named panel.
       "Mod+Space".action.spawn = [

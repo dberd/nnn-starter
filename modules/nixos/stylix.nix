@@ -24,9 +24,11 @@
     };
 
     fonts = {
+      # If column alignment ever looks off in ghostty/btop, switch the name to
+      # "JetBrainsMono Nerd Font Mono" (the strictly monospaced variant).
       monospace = {
-        package = pkgs.maple-mono.NF;
-        name = "Maple Mono NF";
+        package = pkgs.nerd-fonts.jetbrains-mono;
+        name = "JetBrainsMono Nerd Font";
       };
       sansSerif = {
         package = pkgs.noto-fonts;

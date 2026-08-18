@@ -3,7 +3,7 @@
   # repo and the toolchain loads on `cd`. nix-direnv adds fast caching.
   programs.direnv = {
     enable = true;
-    enableZshIntegration = true;
+    enableFishIntegration = true;
     nix-direnv.enable = true;
     silent = true;
   };

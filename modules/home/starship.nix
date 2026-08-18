@@ -1,7 +1,9 @@
 {...}: {
   programs.starship = {
     enable = true;
-    enableZshIntegration = true;
+    # fish ships its own prompt, but Stylix doesn't theme it — starship is
+    # already wired into the Kanagawa palette, so it stays as the prompt.
+    enableFishIntegration = true;
 
     settings = {
       add_newline = true;

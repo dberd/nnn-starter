@@ -65,27 +65,29 @@
     mimeType = ["text/plain" "application/x-zerosize" "x-scheme-handler/zed"];
   };
 
-  # Make Zed the default GUI handler for plain-text and source files. The
-  # zen-browser module (modules/home/apps.nix) also claims text/plain, but only
-  # with lib.mkDefault, so these plain assignments win. We deliberately leave
-  # text/html and application/json to Zen.
+  # VSCodium is the default GUI handler for plain-text and source files; Zed
+  # stays installed and launchable (Mod+Space, `zed`, "Open With"), it just
+  # isn't what a double-click in Nautilus opens. The zen-browser module
+  # (modules/home/apps.nix) also claims text/plain, but only with lib.mkDefault,
+  # so these plain assignments win. text/html and application/json stay with Zen.
+  # In the terminal, $EDITOR remains neovim (modules/home/neovim.nix).
   xdg.mimeApps = {
     enable = true;
     defaultApplications = let
-      zed = "zed-new-window.desktop";
+      editor = "codium.desktop";
     in {
-      "text/plain" = zed;
-      "text/markdown" = zed;
-      "text/x-readme" = zed;
-      "text/x-python" = zed;
-      "text/x-shellscript" = zed;
-      "text/x-csrc" = zed;
-      "text/x-chdr" = zed;
-      "text/rust" = zed;
-      "application/x-shellscript" = zed;
-      "application/toml" = zed;
-      "application/x-yaml" = zed;
-      "application/xml" = zed;
+      "text/plain" = editor;
+      "text/markdown" = editor;
+      "text/x-readme" = editor;
+      "text/x-python" = editor;
+      "text/x-shellscript" = editor;
+      "text/x-csrc" = editor;
+      "text/x-chdr" = editor;
+      "text/rust" = editor;
+      "application/x-shellscript" = editor;
+      "application/toml" = editor;
+      "application/x-yaml" = editor;
+      "application/xml" = editor;
     };
   };
 
