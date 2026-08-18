@@ -1,6 +1,7 @@
 {
   pkgs,
   inputs,
+  username,
   ...
 }: {
   # The Noctalia desktop shell: bar, launcher, notifications, control center,
@@ -15,12 +16,45 @@
     # starts and stops with your login.
     systemd.enable = true;
 
-    # Remaining settings are pinned from a live session: configure them in the
-    # control center (Mod+Space → settings), then copy the resulting keys out of
-    # ~/.config/quickshell/noctalia/settings.json into `settings` here. Still to
-    # pin: weather location (Moscow), clock format, idle/lock timeouts, and the
-    # colour-generation options (generationMethod = "tonal-spot",
-    # monitorForColors) that make the palette follow the wallpaper.
+    # Written to ~/.config/noctalia/config.toml. Note there are two files:
+    # this declarative one, and ~/.local/state/noctalia/settings.toml which the
+    # control center writes at runtime. Keys below come from
+    # `noctalia config export full`, and the module validates them at build time
+    # (`noctalia config validate`), so a typo fails the build rather than
+    # silently doing nothing.
+    settings = {
+      # This was empty, which is the whole reason there was no wallpaper — and,
+      # since the lock screen draws the same wallpaper, why that was black too.
+      wallpaper = {
+        directory = "/home/${username}/Pictures/wallpapers";
+        default.path = "/home/${username}/Pictures/wallpapers/kanagawa-wave.png";
+      };
+
+      # Palette generated from the wallpaper, the same model DankMaterialShell
+      # used. Pinned here (rather than left to the control center) so the second
+      # host reproduces it.
+      theme = {
+        source = "wallpaper";
+        mode = "dark";
+        wallpaper_scheme = "m3-content";
+      };
+
+      location.address = "Moscow, Russia";
+
+      # Lock on idle. Noctalia has this built in — it was simply disabled, so no
+      # systemd unit is needed for it.
+      idle.behavior.lock = {
+        enabled = true;
+        timeout = 600;
+      };
+
+      # Deliberately not set:
+      #   shell.time_format — already 24h
+      #   shell.date_format — "%A, %x" takes its format from the locale, and
+      #     LC_TIME=en_IE (hosts/common) already makes that dd/mm/yyyy
+      #   shell.polkit_agent — leave off: niri-flake already runs one, and a
+      #     second agent would just race it for the D-Bus name
+    };
   };
 
   # Noctalia draws the wallpaper — Stylix only reads the image to derive its own
