@@ -1,7 +1,11 @@
 # VPN stack: Throne (general-purpose TUN proxy, replaces happ) + snx-rs
 # (Check Point corporate VPN), plus the split-routing fix that makes the two
 # coexist.
-{pkgs, ...}: {
+{
+  pkgs,
+  username,
+  ...
+}: {
   # ── Throne ────────────────────────────────────────────────────────────────
   # GUI proxy manager on top of sing-box. The upstream NixOS module does the
   # privileged parts for us: a security.wrappers entry giving ThroneCore
@@ -15,35 +19,42 @@
 
   # ── snx-rs ────────────────────────────────────────────────────────────────
   # Open-source Check Point (SNX) client. No NixOS module upstream, so the
-  # daemon is wired up by hand.
+  # daemon is wired up by hand, mirroring how it ran on the previous distro.
   #
-  # The config file holds the corporate login and password, so it is NOT in this
-  # repo: create /etc/snx-rs/snx-rs.conf by hand, mode 0600, root-owned.
-  # (Migration target: sops-nix + sops.templates.)
+  # `-m command` means the daemon just sits and waits: it does NOT connect on
+  # its own. Connecting is `snxctl connect`, run as the user, and snxctl is what
+  # reads the profile — from ~/.config/snx-rs/snx-rs.conf. That file holds the
+  # corporate login and password, which is why it is neither in this repo nor
+  # in /etc. (Migration target: sops-nix.)
   environment.systemPackages = [pkgs.snx-rs];
 
   systemd.services.snx-rs = {
-    description = "snx-rs Check Point VPN daemon";
-    after = ["network-online.target"];
+    description = "snx-rs Check Point VPN core";
+    after = ["network.target" "network-online.target"];
     wants = ["network-online.target"];
-    # Not wantedBy multi-user.target on purpose: connect on demand with
-    # `systemctl start snx-rs` / the snx-rs tray app, like the old setup.
+    wantedBy = ["multi-user.target"];
     serviceConfig = {
-      ExecStart = "${pkgs.snx-rs}/bin/snx-rs -c /etc/snx-rs/snx-rs.conf";
-      Restart = "on-failure";
+      Type = "simple";
+      ExecStart = "${pkgs.snx-rs}/bin/snx-rs -m command -l info";
+      Restart = "always";
+      RestartSec = 10;
+      LimitNOFILE = 65536;
     };
   };
 
   # ── Split routing ─────────────────────────────────────────────────────────
-  # Ported from the old ~/snx-happ-routing.sh (happ → Throne; the mechanism is
-  # identical because both are sing-box-style TUN clients that grab the default
-  # route).
+  # Ported from ~/Work/workspace-setup/vpn/snx-happ-routing.sh (happ → Throne;
+  # the mechanism is identical because both are sing-box front-ends, and the
+  # table/priority numbers below are sing-box's own defaults).
   #
-  # Two things have to bypass the TUN:
-  #   1. The efko SSL/IKE gateways themselves — otherwise the SNX underlay would
-  #      try to run inside the very tunnel it is establishing.
-  #   2. Corporate networks snx-rs installs in table 18000 — they must be
-  #      consulted before Throne's own rules.
+  # Rules are evaluated lowest-priority-first, so ours land ahead of sing-box's
+  # 9000-9010 block regardless of start order. Two things must bypass the TUN:
+  #
+  #   1. The efko gateways themselves — SNX builds its SSL/ESP tunnel *to* them,
+  #      and running that inside the proxy tunnel either fails or sends all
+  #      corporate traffic through the VPN provider.
+  #   2. Corporate networks, which snx-rs installs into table 18000. That table
+  #      is empty until snx connects, so the rule is harmless when it isn't.
   systemd.services.snx-vpn-routing = {
     description = "snx-rs + Throne split routing fix";
     after = ["network-online.target" "snx-rs.service"];
@@ -57,53 +68,45 @@
     script = ''
       set -e
 
-      SNX_CONF=/etc/snx-rs/snx-rs.conf
+      SNX_CONF=/home/${username}/.config/snx-rs/snx-rs.conf
 
       # Static public ranges of the efko gateways — always direct, never via TUN.
       EFKO_GW_NETS="195.239.33.0/24 77.105.188.0/24 213.129.115.0/24"
 
-      # Physical uplink: first default route in the main table that is not a
-      # tunnel device. (The old script hardcoded enp5s0; deriving it keeps this
-      # working on the laptop and after any NIC rename.)
-      DEV=$(ip -4 -o route show default table main \
-        | awk '{for (i = 1; i <= NF; i++) if ($i == "dev") print $(i + 1)}' \
-        | awk '!/^(tun|utun|sing|throne|snx|wg|tap)/ {print; exit}')
-      if [ -z "$DEV" ]; then
-        echo "no physical default route found, nothing to do" >&2
-        exit 0
-      fi
+      # Physical uplink and gateway, both taken from the current default route.
+      # Virtual interfaces are filtered out: picking our own tun would loop the
+      # route back into the tunnel we are trying to bypass.
+      read -r DEV LAN_GW <<<"$(ip -4 route show default table main 2>/dev/null | awk '
+          {d=""; g=""
+           for (i = 1; i <= NF; i++) { if ($i == "dev") d = $(i+1); if ($i == "via") g = $(i+1) }
+           if (d != "" && d !~ /^(tun|veth|docker|br-|wg)/) { print d, g; exit }}')"
 
-      LAN_GW=$(ip -4 route show default dev "$DEV" table main | awk '{print $3; exit}')
-      [ -z "$LAN_GW" ] && LAN_GW=192.168.1.254
+      [ -z "$DEV" ] && { echo "snx-vpn-routing: no physical default route" >&2; exit 1; }
+      [ -z "$LAN_GW" ] && { echo "snx-vpn-routing: no gateway on $DEV" >&2; exit 1; }
 
-      # Current gateway from the config, as a safety net for a gateway that is
-      # not in the static list above.
+      # Plus the gateway the profile currently points at, in case it is one not
+      # covered by the static list above.
+      SERVER=$(awk -F= '/^server-name=/{print $2; exit}' "$SNX_CONF" 2>/dev/null | tr -d '[:space:]')
+      GW_SNX=$(getent hosts "$SERVER" 2>/dev/null | awk '{print $1; exit}')
+
       TARGETS="$EFKO_GW_NETS"
-      if [ -r "$SNX_CONF" ]; then
-        SERVER=$(awk -F= '/^server-name=/{print $2; exit}' "$SNX_CONF" | tr -d '[:space:]')
-        if [ -n "$SERVER" ]; then
-          GW_SNX=$(getent hosts "$SERVER" | awk '{print $1; exit}' || true)
-          [ -n "$GW_SNX" ] && TARGETS="$TARGETS ''${GW_SNX}/32"
-        fi
-      fi
+      [ -n "$GW_SNX" ] && TARGETS="$TARGETS ''${GW_SNX}/32"
       TARGETS=$(printf '%s\n' $TARGETS | sort -u)
 
-      # 1) Each target goes straight out the physical router (table 100).
+      # 1) Every target gateway goes straight out the physical router (table 100).
       for t in $TARGETS; do
-        ip route replace "$t" via "$LAN_GW" dev "$DEV" table 100
+          ip route replace "$t" via "$LAN_GW" dev "$DEV" table 100
       done
 
       # 2) Rules, idempotently: wipe our priority block, then re-add.
-      for p in $(seq 4900 4919) 5000 5100; do
-        ip rule del priority "$p" 2>/dev/null || true
-      done
+      for p in {4900..4919} 5000 5100; do ip rule del priority $p 2>/dev/null || true; done
       prio=4900
       for t in $TARGETS; do
-        ip rule add to "$t" lookup 100 priority "$prio"
-        prio=$((prio + 1))
+          ip rule add to "$t" lookup 100 priority $prio
+          prio=$((prio+1))
       done
 
-      # 3) Corporate traffic via snx-rs's table, ahead of the TUN client's rules.
+      # 3) Corporate traffic via snx-rs's table, ahead of sing-box's rules.
       ip rule add from all lookup 18000 priority 5100
     '';
   };

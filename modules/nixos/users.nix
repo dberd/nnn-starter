@@ -8,6 +8,9 @@
   users.users.${username} = {
     isNormalUser = true;
     description = local.fullName;
+    # Pinned rather than auto-assigned, so anything keyed on the uid (firewall
+    # rules, cgroup paths, NFS mounts) can't silently stop matching later.
+    uid = 1000;
     extraGroups = [
       "wheel" # sudo
       "networkmanager"

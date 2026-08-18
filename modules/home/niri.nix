@@ -19,9 +19,16 @@
       };
       mouse = {
         accel-profile = "flat";
-        natural-scroll = true; # match macOS-style scrolling (also set on touchpad)
+        # Traditional wheel direction. Natural scrolling stays on for the
+        # touchpad only — a wheel and a touchpad want opposite conventions.
+        natural-scroll = false;
       };
-      focus-follows-mouse.enable = true;
+      # Focus follows clicks, not the pointer.
+      focus-follows-mouse.enable = false;
+      # Move the pointer to whatever gains focus. niri has no per-bind version
+      # of this, so it also applies to Mod+Left/Right within one monitor — the
+      # price of having the cursor follow Ctrl+Mod+Left/Right across monitors.
+      warp-mouse-to-focus.enable = true;
     };
 
     # Per-output mode/scale/position, declared in hosts/<host>/local.nix.
@@ -80,13 +87,39 @@
       "Mod+F".action.maximize-column = {};
       "Mod+Shift+F".action.fullscreen-window = {};
       "Mod+W".action.toggle-column-tabbed-display = {};
-      "Mod+V".action.toggle-window-floating = {};
+      # Moved off Mod+V, which now opens the clipboard (see below).
+      "Mod+Shift+T".action.toggle-window-floating = {};
+      "Mod+D".action.toggle-overview = {};
+
+      # Noctalia clipboard history.
+      "Mod+V".action.spawn = [
+        "noctalia"
+        "msg"
+        "panel-toggle"
+        "clipboard"
+      ];
 
       # Focus
       "Mod+H".action.focus-column-left = {};
       "Mod+L".action.focus-column-right = {};
       "Mod+J".action.focus-window-down = {};
       "Mod+K".action.focus-window-up = {};
+
+      # Same movement on the arrow keys: left/right across columns, up/down
+      # across workspaces, Ctrl+Mod across monitors (the pointer follows,
+      # see warp-mouse-to-focus above).
+      "Mod+Left".action.focus-column-left = {};
+      "Mod+Right".action.focus-column-right = {};
+      "Mod+Up".action.focus-workspace-up = {};
+      "Mod+Down".action.focus-workspace-down = {};
+      "Ctrl+Mod+Left".action.focus-monitor-left = {};
+      "Ctrl+Mod+Right".action.focus-monitor-right = {};
+
+      # Toggle between the two most recent windows. This is NOT the full
+      # switcher with previews — that lives in niri's `recent-windows` block,
+      # which niri-flake's settings module doesn't expose. Mod+Tab still opens
+      # the built-in switcher, since niri binds it by default.
+      "Alt+Tab".action.focus-window-previous = {};
 
       # Move
       "Mod+Shift+H".action.move-column-left = {};

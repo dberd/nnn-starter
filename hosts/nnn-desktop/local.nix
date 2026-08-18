@@ -8,7 +8,8 @@
   # Login user and machine identity.
   username = "sundial";
   hostName = "nnn-desktop";
-  fullName = "Dmitry Berdnikov";
+  # Shown as the account description — the greeter and Noctalia display it.
+  fullName = "sundial";
 
   # Locale / location.
   timeZone = "Europe/Moscow";

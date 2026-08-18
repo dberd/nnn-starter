@@ -1,7 +1,7 @@
 {lib, ...}: {
-  # GitHub is used over ssh (the corporate GitLab is https + libsecret, see
-  # ./git.nix). Keys themselves are NOT managed here — copy ~/.ssh/id_ed25519
-  # over by hand; only the client config is declarative.
+  # Client config only — the keys themselves are NOT managed here. Copy
+  # ~/.ssh/id_ed25519_* over by hand; they are already registered with GitHub
+  # and the corporate GitLab, so don't generate new ones.
   programs.ssh = {
     enable = true;
     # We write our own `Host *` block below instead of home-manager's default one.
@@ -11,15 +11,29 @@
     # `matchBlocks` API is deprecated). Attribute names become `Host <name>`.
     settings = {
       "github.com" = {
+        HostName = "github.com";
         User = "git";
-        IdentityFile = "~/.ssh/id_ed25519";
+        IdentityFile = "~/.ssh/id_ed25519_github_dberd";
         IdentitiesOnly = "yes";
+        PreferredAuthentications = "publickey";
+      };
+
+      # Corporate GitLab. Note that modules/home/git.nix rewrites this host's
+      # ssh URLs to https (carried over from the old ~/.gitconfig), so in
+      # practice git reaches it over https and this block only applies to plain
+      # `ssh`/`scp` use.
+      "git.sddt.efko.ru" = {
+        HostName = "git.sddt.efko.ru";
+        User = "git";
+        IdentityFile = "~/.ssh/id_ed25519_gitlab_efko";
+        IdentitiesOnly = "yes";
+        PreferredAuthentications = "publickey";
       };
 
       # ssh takes the first value it sees for each option, so the catch-all has
-      # to be emitted after the specific host — hence the explicit dag ordering
+      # to be emitted after the specific hosts — hence the explicit dag ordering
       # rather than relying on attribute sort order.
-      "*" = lib.hm.dag.entryAfter ["github.com"] {
+      "*" = lib.hm.dag.entryAfter ["github.com" "git.sddt.efko.ru"] {
         ServerAliveInterval = 60;
         # Reuse one connection for repeated git operations, but don't let a
         # master socket outlive a VPN reconnect for long.
