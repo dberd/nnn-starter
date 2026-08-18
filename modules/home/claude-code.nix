@@ -4,10 +4,10 @@
   pkgs,
   ...
 }: let
-  # Throne's local HTTP inbound. NekoRay-lineage defaults are 2080 (SOCKS) and
-  # 2081 (HTTP) — check Throne → Preferences → Inbound and adjust if yours
-  # differs, otherwise claude will fail to reach anything.
-  proxyPort = 2081;
+  # Throne's local inbound. It is a "mixed" listener, so the same port speaks
+  # both SOCKS and HTTP — confirmed from Throne's own log:
+  #   inbound/mixed[mixed-in]: tcp server started at 127.0.0.1:2080
+  proxyPort = 2080;
 in {
   # Claude Code — Anthropic's official CLI (binary: `claude`). Marked unfree, so
   # it relies on the allowUnfree set in flake.nix.
