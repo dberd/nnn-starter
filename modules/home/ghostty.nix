@@ -1,13 +1,12 @@
 {...}: {
-  # Colour is handed to Noctalia instead of Stylix: a Stylix-written theme lives
-  # in the nix store, so it can never follow a runtime theme switch in the shell.
-  # (This target is home-manager-level — ghostty is an HM program, so it does not
-  # exist under the NixOS stylix module.)
+  # Stylix themes the terminal. Handing this to Noctalia was tried and reverted:
+  # it does not template ghostty, so the config came out with neither colours nor
+  # font — the exact failure the previous comment here warned about.
   #
-  # Revert this if Noctalia turns out not to template ghostty, otherwise the
-  # terminal ends up with no theme at all.
-  stylix.targets.ghostty.enable = false;
-
+  # The consequence stands: Stylix writes this theme into the nix store, so the
+  # terminal cannot follow a runtime theme switch in Noctalia. Since the Stylix
+  # palette is now derived from the same wallpaper Noctalia generates from, the
+  # two agree — they just re-derive at different times (build vs runtime).
   programs.ghostty = {
     enable = true;
     enableFishIntegration = true;
