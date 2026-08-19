@@ -59,19 +59,23 @@
       bar.default = {
         scale = 1.15;
         padding = 18;
+        # Default leaves 180px free at each end, which is why the bar looked
+        # narrow. Matching niri's layout gaps lines it up with the edges a
+        # window reaches when maximised.
+        margin_ends = 12;
         capsule = true;
 
         # Widget lists are replaced wholesale, not merged, so the default order
-        # is restated here with keyboard-layout added. The id comes from the
-        # binary — the settings schema does not list widgets, and the config
-        # validator accepts any string, so it could not be discovered from
-        # either.
+        # is restated here with keyboard_layout added. Note the underscore: the
+        # other ids are hyphenated, this one is not. Found by feeding candidates
+        # to the shell and watching which ones it did not reject — the schema
+        # does not list widgets and the validator accepts any string.
         end = [
           "media"
           "tray"
           "notifications"
           "clipboard"
-          "keyboard-layout"
+          "keyboard_layout"
           "network"
           "bluetooth"
           "volume"
