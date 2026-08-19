@@ -2,10 +2,29 @@
 # (Check Point corporate VPN), plus the split-routing fix that makes the two
 # coexist.
 {
+  lib,
   pkgs,
   username,
   ...
-}: {
+}: let
+  # nixpkgs' snx-rs does not give the GUI the libraries winit loads at runtime.
+  # winit dlopens libwayland-client rather than linking it, so nothing lands in
+  # the RPATH and `snx-rs-gui` dies immediately with
+  #   Error initializing winit event loop: The wayland library could not be loaded
+  # which is why no tray icon ever appeared — the process never got that far.
+  #
+  # The package is built with wrapGAppsHook4, so this appends to the wrapper it
+  # already produces instead of nesting a second one around it.
+  snx-rs = pkgs.snx-rs.overrideAttrs (old: {
+    preFixup =
+      (old.preFixup or "")
+      + ''
+        gappsWrapperArgs+=(
+          --prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath [pkgs.wayland pkgs.libxkbcommon]}"
+        )
+      '';
+  });
+in {
   # ── Throne ────────────────────────────────────────────────────────────────
   # GUI proxy manager on top of sing-box. The upstream NixOS module does the
   # privileged parts for us: a security.wrappers entry giving ThroneCore
@@ -17,6 +36,11 @@
     tunMode.enable = true;
   };
 
+  # Reverse-path filtering drops the VPN's keepalive traffic: replies come back
+  # on the tunnel rather than the interface the kernel would route to. snx-rs'
+  # own NixOS documentation calls for exactly this.
+  networking.firewall.checkReversePath = "loose";
+
   # ── snx-rs ────────────────────────────────────────────────────────────────
   # Open-source Check Point (SNX) client. No NixOS module upstream, so the
   # daemon is wired up by hand, mirroring how it ran on the previous distro.
@@ -26,7 +50,7 @@
   # reads the profile — from ~/.config/snx-rs/snx-rs.conf. That file holds the
   # corporate login and password, which is why it is neither in this repo nor
   # in /etc. (Migration target: sops-nix.)
-  environment.systemPackages = [pkgs.snx-rs];
+  environment.systemPackages = [snx-rs];
 
   systemd.services.snx-rs = {
     description = "snx-rs Check Point VPN core";
@@ -35,7 +59,7 @@
     wantedBy = ["multi-user.target"];
     serviceConfig = {
       Type = "simple";
-      ExecStart = "${pkgs.snx-rs}/bin/snx-rs -m command -l info";
+      ExecStart = "${snx-rs}/bin/snx-rs -m command -l info";
       Restart = "always";
       RestartSec = 10;
       LimitNOFILE = 65536;
