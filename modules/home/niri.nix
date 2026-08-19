@@ -1,4 +1,8 @@
-{local, ...}: {
+{
+  local,
+  pkgs,
+  ...
+}: {
   programs.niri.settings = {
     # Stylix's niri target sets border/focus-ring colors and the cursor, so we
     # only describe behaviour here.
@@ -8,6 +12,12 @@
     # niri shows the hotkey overlay on every startup by default; this is the
     # switch for that, not the Mod+Shift+Slash binding further down.
     hotkey-overlay.skip-at-startup = true;
+
+    # X11 apps (Steam, older games) need an X server. niri can spawn
+    # xwayland-satellite and export DISPLAY for them, but only when told where
+    # the binary is — the default leaves it unset, which is why Steam reported
+    # "unable to open a connection to X".
+    xwayland-satellite.path = "${pkgs.xwayland-satellite-stable}/bin/xwayland-satellite";
 
     input = {
       keyboard.xkb = {
@@ -69,14 +79,15 @@
     # Subtle, fast animations — omarchy-style polish without distraction.
     animations.slowdown = 0.7;
 
-    # Put Noctalia's backdrop surface into niri's overview backdrop, so the
+    # Put Noctalia's background surfaces into niri's overview backdrop, so the
     # overview shows one wallpaper behind everything rather than a copy inside
-    # each workspace thumbnail. This is the same mechanism DankMaterialShell
-    # used (it matched its own "dms:blurwallpaper" namespace); the surface is
-    # the one Noctalia creates once backdrop.enabled is set.
+    # each workspace thumbnail. The wallpaper surface has to go in too, not just
+    # the backdrop: niri draws a workspace thumbnail together with the output's
+    # background layer, so leaving it out is what produced the per-workspace
+    # copies. Same mechanism DankMaterialShell used for its "dms:blurwallpaper".
     layer-rules = [
       {
-        matches = [{namespace = "^noctalia-backdrop$";}];
+        matches = [{namespace = "^noctalia-(backdrop|wallpaper)$";}];
         place-within-backdrop = true;
       }
     ];
