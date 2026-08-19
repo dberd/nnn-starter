@@ -28,6 +28,12 @@
     # Left to bring its own nixpkgs, for the same cache reason as niri/noctalia.
     noctalia-greeter.url = "github:noctalia-dev/noctalia-greeter";
 
+    # Declarative disk partitioning (hosts/*/disko.nix).
+    disko = {
+      url = "github:nix-community/disko";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # System-wide base16 theming.
     stylix = {
       url = "github:nix-community/stylix";
@@ -51,6 +57,7 @@
     niri,
     noctalia,
     noctalia-greeter,
+    disko,
     stylix,
     ...
   } @ inputs: let
@@ -69,6 +76,7 @@
           niri.nixosModules.niri
           noctalia.nixosModules.default
           noctalia-greeter.nixosModules.default
+          disko.nixosModules.disko
           stylix.nixosModules.stylix
           home-manager.nixosModules.home-manager
 
