@@ -60,6 +60,26 @@
         scale = 1.15;
         padding = 18;
         capsule = true;
+
+        # Widget lists are replaced wholesale, not merged, so the default order
+        # is restated here with keyboard-layout added. The id comes from the
+        # binary — the settings schema does not list widgets, and the config
+        # validator accepts any string, so it could not be discovered from
+        # either.
+        end = [
+          "media"
+          "tray"
+          "notifications"
+          "clipboard"
+          "keyboard-layout"
+          "network"
+          "bluetooth"
+          "volume"
+          "brightness"
+          "battery"
+          "control-center"
+          "session"
+        ];
       };
 
       # Tinted backdrop — this is what shows behind niri's overview, giving one
