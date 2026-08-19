@@ -1,0 +1,13 @@
+# Recipient for everything under secrets/. The matching private key lives at
+# /var/lib/sops-nix/key.txt on the host — that file is the one thing that cannot
+# live in this repo, and the one thing you must carry to a new machine.
+#
+# Add a second key here (and run `sops updatekeys`) when the ThinkPad joins.
+keys:
+  - &nnn-desktop age13per274d9pyukzpjcdw5nlk6cpqkc5vqvenrvhygy5ms3eeq9grq7rve8l
+
+creation_rules:
+  - path_regex: secrets/[^/]+\.(yaml|json|env|ini|conf)$
+    key_groups:
+      - age:
+          - *nnn-desktop

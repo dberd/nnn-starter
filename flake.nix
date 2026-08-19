@@ -28,6 +28,12 @@
     # Left to bring its own nixpkgs, for the same cache reason as niri/noctalia.
     noctalia-greeter.url = "github:noctalia-dev/noctalia-greeter";
 
+    # Secrets: encrypted in-repo, decrypted at activation (secrets/, .sops.yaml).
+    sops-nix = {
+      url = "github:Mic92/sops-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # Declarative disk partitioning (hosts/*/disko.nix).
     disko = {
       url = "github:nix-community/disko";
@@ -58,6 +64,7 @@
     noctalia,
     noctalia-greeter,
     disko,
+    sops-nix,
     stylix,
     ...
   } @ inputs: let
@@ -77,6 +84,7 @@
           noctalia.nixosModules.default
           noctalia-greeter.nixosModules.default
           disko.nixosModules.disko
+          sops-nix.nixosModules.sops
           stylix.nixosModules.stylix
           home-manager.nixosModules.home-manager
 
@@ -141,6 +149,8 @@
           deadnix
           nh
           nix-output-monitor
+          sops
+          age
         ];
       };
     });
