@@ -41,6 +41,18 @@
 
       location.address = "Moscow, Russia";
 
+      # This desktop has no backlight device, so brightness has to go over
+      # DDC/CI to the monitors themselves. Noctalia supports it but ships the
+      # switch off, which is why it reported "brightness control unavailable"
+      # even once ddcutil and hardware.i2c were in place.
+      brightness.enable_ddcutil = true;
+
+      # Apps launched from the launcher otherwise live inside Noctalia's own
+      # cgroup, so restarting the shell takes them down with it — which is how
+      # a `systemctl --user restart noctalia` managed to kill VSCodium. As
+      # transient units they outlive the shell.
+      shell.launch_apps_as_systemd_services = true;
+
       # Bar: `scale` is the overall size knob; padding is the vertical breathing
       # room. Capsules are how Noctalia separates sections — each group gets its
       # own backing, which reads as a divider between them.

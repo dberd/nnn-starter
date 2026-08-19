@@ -1,7 +1,11 @@
 # Hardware defaults for an AMD desktop (Ryzen 7 5700X + Radeon RX 7700/7800 XT,
 # Navi 32 / RDNA3). Counterpart to ./intel-laptop.nix — a host imports exactly
 # one of the two.
-{pkgs, ...}: {
+{
+  pkgs,
+  username,
+  ...
+}: {
   # Load amdgpu in the initrd so KMS (and therefore plymouth) comes up on the
   # real driver instead of flickering through simpledrm first.
   boot.initrd.kernelModules = ["amdgpu"];
@@ -21,7 +25,15 @@
   environment.systemPackages = with pkgs; [
     libva-utils # `vainfo` — check decode/encode profiles
     radeontop # GPU utilization
+    ddcutil # DDC/CI — brightness on external monitors (see hardware.i2c below)
   ];
+
+  # Brightness on external monitors goes over DDC/CI, which needs the i2c-dev
+  # module, the /dev/i2c-* nodes and group, and udev rules — hardware.i2c sets
+  # up all three. Without it Noctalia reports "brightness control unavailable",
+  # since there is no backlight device on a desktop for it to fall back to.
+  hardware.i2c.enable = true;
+  users.users.${username}.extraGroups = ["i2c"];
 
   # Firmware updates via LVFS.
   services.fwupd.enable = true;
