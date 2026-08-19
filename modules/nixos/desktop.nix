@@ -3,6 +3,24 @@
   # authentication agent that shows the password prompt comes from niri-flake
   # (niri-flake-polkit.service), so none is declared here.
   security.polkit.enable = true;
+
+  # Let wheel mount disks without an authentication prompt. udisks classes
+  # internal drives under filesystem-mount-system, which defaults to
+  # auth_admin_keep — and the prompt never actually appears here, so Nautilus
+  # just reports "not authorized" for the NVMe and the Windows partition.
+  #
+  # This is not a loosening of the security model: wheelNeedsPassword is already
+  # false (see users.nix), so anything running as this user can become root
+  # without authenticating anyway. Asking for a password to mount a disk while
+  # `sudo mount` needs none is friction, not protection.
+  security.polkit.extraConfig = ''
+    polkit.addRule(function (action, subject) {
+      if (action.id.indexOf("org.freedesktop.udisks2.filesystem-mount") === 0
+          && subject.isInGroup("wheel")) {
+        return polkit.Result.YES;
+      }
+    });
+  '';
   services.gnome.gnome-keyring.enable = true;
   programs.dconf.enable = true;
 
