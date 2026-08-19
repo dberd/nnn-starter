@@ -36,6 +36,14 @@
     EOF
     fi
 
+    # Electron stores secrets with a weak built-in cipher unless told to use the
+    # system keyring; VSCodium ships "basic" by default and warns about it. The
+    # keyring itself is fine (gnome-keyring, unlocked by PAM at login).
+    argv="$HOME/.vscode-oss/argv.json"
+    if [ -e "$argv" ] && grep -q '"password-store": "basic"' "$argv"; then
+      run sed -i 's/"password-store": "basic"/"password-store": "gnome-libsecret"/' "$argv"
+    fi
+
     if ! ${pkgs.vscodium}/bin/codium --list-extensions 2>/dev/null | grep -qix 'zokugun.sync-settings'; then
       run ${pkgs.vscodium}/bin/codium --install-extension zokugun.sync-settings || true
     fi

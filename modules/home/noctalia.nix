@@ -41,6 +41,30 @@
 
       location.address = "Moscow, Russia";
 
+      # Bar: `scale` is the overall size knob; padding is the vertical breathing
+      # room. Capsules are how Noctalia separates sections — each group gets its
+      # own backing, which reads as a divider between them.
+      bar.default = {
+        scale = 1.15;
+        padding = 18;
+        capsule = true;
+      };
+
+      # Tinted backdrop — this is what shows behind niri's overview, giving one
+      # wallpaper for the whole screen instead of a copy per workspace. It was
+      # simply switched off. Blur left at 0 — tint only.
+      backdrop = {
+        enabled = true;
+        blur_intensity = 0.0;
+        tint_intensity = 0.3;
+      };
+
+      # Noctalia can theme external apps from the active palette. ghostty is in
+      # its catalogue; enabling it here is what makes the terminal follow a
+      # theme switch at runtime, which Stylix cannot do (it writes into the
+      # store at build time).
+      theme.templates.builtin_ids = ["ghostty"];
+
       # Lock on idle. Noctalia has this built in — it was simply disabled, so no
       # systemd unit is needed for it.
       idle.behavior.lock = {

@@ -37,6 +37,9 @@
       };
     };
     "DP-2" = {
+      # Primary monitor: niri focuses it on startup, and the greeter is pinned
+      # to it too (see programs.noctalia-greeter.settings.output in default.nix).
+      focus-at-startup = true;
       # Philips PHL 245E1 — logical size 2133x1200 at scale 1.2
       mode = {
         width = 2560;

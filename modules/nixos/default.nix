@@ -35,6 +35,21 @@
     "noctalia.cachix.org-1:pCOR47nnMEo5thcxNDtzWpOxNFQsBRglJzxWPp3dkU4="
   ];
 
+  # Free space thresholds fire during builds, not once a week on a timer, so
+  # the disk cannot fill at the moment it matters. "Old generations must not
+  # exceed N% of the disk" is not expressible: the store is deduplicated and
+  # paths are shared between generations, so a per-generation size does not
+  # exist as a quantity.
+  nix.settings.min-free = 20 * 1024 * 1024 * 1024;
+  nix.settings.max-free = 60 * 1024 * 1024 * 1024;
+
+  # Hard-link identical files in the store. Usually saves more than deleting a
+  # couple of generations would.
+  nix.optimise = {
+    automatic = true;
+    dates = ["weekly"];
+  };
+
   nix.gc = {
     automatic = true;
     dates = "weekly";

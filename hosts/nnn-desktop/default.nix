@@ -21,6 +21,9 @@
   programs.noctalia-greeter.settings = {
     session.default = "niri";
     output = {
+      # Primary monitor — the greeter draws here rather than on whichever output
+      # the compositor happens to pick first.
+      name = "DP-2";
       layout = "HDMI-A-2:0,0; DP-2:1920,0";
       scales = "HDMI-A-2:1; DP-2:1.2";
     };

@@ -5,13 +5,17 @@
 
     prefer-no-csd = true;
 
+    # niri shows the hotkey overlay on every startup by default; this is the
+    # switch for that, not the Mod+Shift+Slash binding further down.
+    hotkey-overlay.skip-at-startup = true;
+
     input = {
       keyboard.xkb = {
         layout = "us,ru";
         options = "grp:alt_shift_toggle"; # Alt+Shift switches US <-> Russian
       };
-      # Each window remembers its own layout ("global" = one shared layout).
-      keyboard.track-layout = "window";
+      # One layout shared by every window, rather than per-window.
+      keyboard.track-layout = "global";
       touchpad = {
         tap = true;
         natural-scroll = true;
@@ -172,18 +176,19 @@
       # Help + session
       "Mod+Shift+Slash".action.show-hotkey-overlay = {};
       "Mod+Shift+E".action.quit = {};
-
-      # Media / brightness keys
-      "XF86AudioRaiseVolume".action.spawn = ["wpctl" "set-volume" "@DEFAULT_AUDIO_SINK@" "5%+"];
-      "XF86AudioLowerVolume".action.spawn = ["wpctl" "set-volume" "@DEFAULT_AUDIO_SINK@" "5%-"];
-      "XF86AudioMute".action.spawn = ["wpctl" "set-mute" "@DEFAULT_AUDIO_SINK@" "toggle"];
-      "XF86AudioPlay".action.spawn = ["playerctl" "play-pause"];
-      "XF86AudioNext".action.spawn = ["playerctl" "next"];
-      "XF86AudioPrev".action.spawn = ["playerctl" "previous"];
-      # Internal panel. modules/nixos/apple-studio-display.nix overrides these to
-      # also drive a docked Apple Studio Display when that module is enabled.
-      "XF86MonBrightnessUp".action.spawn = ["brightnessctl" "set" "5%+"];
-      "XF86MonBrightnessDown".action.spawn = ["brightnessctl" "set" "5%-"];
+      # Media keys go through Noctalia rather than wpctl/brightnessctl directly:
+      # it draws the on-screen indicator, and its brightness commands drive
+      # external monitors over DDC/CI — brightnessctl only ever controlled a
+      # laptop panel, which this machine does not have.
+      "XF86AudioRaiseVolume".action.spawn = ["noctalia" "msg" "volume-up"];
+      "XF86AudioLowerVolume".action.spawn = ["noctalia" "msg" "volume-down"];
+      "XF86AudioMute".action.spawn = ["noctalia" "msg" "volume-mute"];
+      "XF86AudioMicMute".action.spawn = ["noctalia" "msg" "mic-mute"];
+      "XF86AudioPlay".action.spawn = ["noctalia" "msg" "media" "toggle"];
+      "XF86AudioNext".action.spawn = ["noctalia" "msg" "media" "next"];
+      "XF86AudioPrev".action.spawn = ["noctalia" "msg" "media" "previous"];
+      "XF86MonBrightnessUp".action.spawn = ["noctalia" "msg" "brightness-up"];
+      "XF86MonBrightnessDown".action.spawn = ["noctalia" "msg" "brightness-down"];
     };
   };
 }
