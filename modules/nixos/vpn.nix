@@ -2,6 +2,7 @@
 # (Check Point corporate VPN), plus the split-routing fix that makes the two
 # coexist.
 {
+  config,
   lib,
   pkgs,
   username,
@@ -55,7 +56,9 @@ in {
   systemd.services.snx-rs = {
     description = "snx-rs Check Point VPN core";
     after = ["network.target" "network-online.target"];
-    wants = ["network-online.target"];
+    # nss-lookup.target is passive: After= alone does not pull it in, so it also
+    # has to be wanted (systemd.special(7)).
+    wants = ["network-online.target" "nss-lookup.target"];
     wantedBy = ["multi-user.target"];
     serviceConfig = {
       Type = "simple";
@@ -79,12 +82,36 @@ in {
   #      corporate traffic through the VPN provider.
   #   2. Corporate networks, which snx-rs installs into table 18000. That table
   #      is empty until snx connects, so the rule is harmless when it isn't.
+  #
+  # The rules are refreshed on every network event rather than once at boot. DEV
+  # and LAN_GW below are read out of the current default route, and that route
+  # changes on reconnect, on moving to another network, and on a DHCP renew. A
+  # single oneshot does not cover any of that: after the first such change the
+  # rules still pointed at an interface that was gone, and corporate traffic went
+  # through the TUN — exactly what they exist to prevent.
+  #
+  # The logic stays here, in one place; the NetworkManager hook further down only
+  # restarts this unit. No separate "snx connected" trigger is needed: rule 5100
+  # is installed unconditionally, and table 18000 is simply empty until it isn't.
   systemd.services.snx-vpn-routing = {
     description = "snx-rs + Throne split routing fix";
-    after = ["network-online.target" "snx-rs.service"];
-    wants = ["network-online.target"];
+    # nss-lookup.target: the script resolves the profile's gateway name with
+    # getent. Without it a cold boot runs before the resolver is up, getent
+    # quietly returns nothing, and only the static subnet list is left.
+    after = ["network-online.target" "nss-lookup.target" "snx-rs.service"];
+    # nss-lookup.target is passive: After= alone does not pull it in, so it also
+    # has to be wanted (systemd.special(7)).
+    wants = ["network-online.target" "nss-lookup.target"];
     wantedBy = ["multi-user.target"];
-    path = with pkgs; [iproute2 gawk glibc.bin coreutils];
+    # getent is its own derivation, not part of glibc.bin — that one ships
+    # getconf, not getent. It was missing here, so the lookup below silently
+    # produced nothing on every boot and the profile's own gateway never got a
+    # rule; only the three static subnets did.
+    path = with pkgs; [iproute2 gawk getent coreutils];
+    # The hook restarts this on every event, and a reconnect emits a burst of
+    # them within seconds. The default limit (5 starts per 10s) would drop the
+    # unit into failed precisely when it is needed most.
+    unitConfig.StartLimitIntervalSec = 0;
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
@@ -105,8 +132,11 @@ in {
            for (i = 1; i <= NF; i++) { if ($i == "dev") d = $(i+1); if ($i == "via") g = $(i+1) }
            if (d != "" && d !~ /^(tun|veth|docker|br-|wg)/) { print d, g; exit }}')"
 
-      [ -z "$DEV" ] && { echo "snx-vpn-routing: no physical default route" >&2; exit 1; }
-      [ -z "$LAN_GW" ] && { echo "snx-vpn-routing: no gateway on $DEV" >&2; exit 1; }
+      # Not an error but the normal state between down and up: there may be no
+      # network at boot, or none for a moment while switching. The hook calls us
+      # again once the link is back, so exit cleanly instead of flapping failed.
+      [ -z "$DEV" ] && { echo "snx-vpn-routing: no physical default route yet, skipping"; exit 0; }
+      [ -z "$LAN_GW" ] && { echo "snx-vpn-routing: no gateway on $DEV yet, skipping"; exit 0; }
 
       # Plus the gateway the profile currently points at, in case it is one not
       # covered by the static list above.
@@ -134,4 +164,29 @@ in {
       ip rule add from all lookup 18000 priority 5100
     '';
   };
+
+  # Ask the kernel again on every network event. NetworkManager drops hooks like
+  # this into /etc/NetworkManager/dispatcher.d and calls them with the interface
+  # in $1 and the action in $2.
+  #
+  # The restart is --no-block on purpose: the dispatcher runs its hooks serially
+  # and waits for each to finish, and systemctl without the flag would in turn
+  # wait for the unit — two waits on each other add a visible pause at boot.
+  networking.networkmanager.dispatcherScripts = [
+    {
+      type = "basic";
+      source = pkgs.writeShellScript "snx-vpn-routing-hook" ''
+        action="$2"
+
+        # Nothing else (pre-up, hostname, dns-change) affects which route wins,
+        # and the hook fires often — leave quietly.
+        case "$action" in
+          up | down | vpn-up | vpn-down | dhcp4-change | dhcp6-change) ;;
+          *) exit 0 ;;
+        esac
+
+        exec ${config.systemd.package}/bin/systemctl restart --no-block snx-vpn-routing.service
+      '';
+    }
+  ];
 }
