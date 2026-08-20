@@ -47,7 +47,7 @@
     spotify-player # TUI client; needs a Premium account to stream
 
     # ── Editors / transfer / misc ───────────────────────────────────────────
-    vscodium # default GUI editor, see modules/home/zed.nix
+    vscodium # default GUI editor, see modules/home/mime.nix
     qbittorrent
     localsend # ports opened in modules/nixos/networking.nix
     cava # audio visualizer

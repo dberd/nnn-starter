@@ -31,8 +31,12 @@
   };
 
   # Bluetooth + a few desktop conveniences.
+  #
+  # Deliberately no `services.blueman.enable`: blueman autostarts a tray applet
+  # that duplicated Noctalia's own bluetooth widget in the bar. Noctalia talks
+  # to BlueZ over D-Bus directly and does not reference blueman anywhere, so the
+  # applet was pure duplication. bluetoothd itself comes from the line below.
   hardware.bluetooth.enable = true;
-  services.blueman.enable = true;
   services.upower.enable = true;
   programs.gnome-disks.enable = true;
   services.gvfs.enable = true; # trash + mounting for file managers.

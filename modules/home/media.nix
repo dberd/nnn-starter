@@ -16,7 +16,7 @@
     };
   };
 
-  # Make them the default handlers. zed.nix already sets `xdg.mimeApps.enable`
+  # Make them the default handlers. mime.nix already sets `xdg.mimeApps.enable`
   # and claims the text/* types; these attrsets merge across modules, so we only
   # add the image/audio/video associations here (don't re-set `enable`, which
   # would be a conflicting definition).

@@ -71,6 +71,12 @@
         inactive.color = "#00000000";
       };
       border.enable = false;
+
+      # Workspaces paint no background of their own, so the single wallpaper
+      # sitting in the backdrop (see layer-rules below) shows through on every
+      # workspace and in the overview alike. niri defaults this to an opaque
+      # grey, which would cover that backdrop everywhere except the overview.
+      background-color = "transparent";
     };
 
     # noctalia is started as a systemd user service bound to the niri session
@@ -79,15 +85,26 @@
     # Subtle, fast animations — omarchy-style polish without distraction.
     animations.slowdown = 0.7;
 
-    # Put Noctalia's background surfaces into niri's overview backdrop, so the
-    # overview shows one wallpaper behind everything rather than a copy inside
-    # each workspace thumbnail. The wallpaper surface has to go in too, not just
-    # the backdrop: niri draws a workspace thumbnail together with the output's
-    # background layer, so leaving it out is what produced the per-workspace
-    # copies. Same mechanism DankMaterialShell used for its "dms:blurwallpaper".
+    # The third piece of niri's own stationary-wallpaper recipe, and the one
+    # that was still showing: with a transparent workspace background, niri's
+    # overview shadow no longer falls on an opaque workspace but straight onto
+    # the wallpaper, drawing a translucent bordered pane around every workspace.
+    overview.workspace-shadow.enable = false;
+
+    # Move Noctalia's wallpaper into niri's overview backdrop, so one wallpaper
+    # sits behind everything instead of a copy inside each workspace thumbnail.
+    # Same mechanism DankMaterialShell used for its "dms:blurwallpaper".
+    #
+    # Only works together with the transparent workspace background above: a
+    # surface moved into the backdrop stops painting inside the workspace, so
+    # with niri's opaque default every workspace is flat grey and the wallpaper
+    # shows up in the overview only.
+    #
+    # Noctalia's other background surface, "noctalia-backdrop", is deliberately
+    # not matched here — it is switched off entirely in noctalia.nix, see there.
     layer-rules = [
       {
-        matches = [{namespace = "^noctalia-(backdrop|wallpaper)$";}];
+        matches = [{namespace = "^noctalia-wallpaper$";}];
         place-within-backdrop = true;
       }
     ];

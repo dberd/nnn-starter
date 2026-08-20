@@ -1,4 +1,5 @@
 {
+  lib,
   pkgs,
   inputs,
   username,
@@ -86,13 +87,26 @@
         ];
       };
 
-      # Tinted backdrop — this is what shows behind niri's overview, giving one
-      # wallpaper for the whole screen instead of a copy per workspace. It was
-      # simply switched off. Blur left at 0 — tint only.
-      backdrop = {
-        enabled = true;
-        blur_intensity = 0.0;
-        tint_intensity = 0.3;
+      # Noctalia's backdrop is a tinted layer-shell surface meant to dim the
+      # desktop behind its own panels. It is not what puts the wallpaper into
+      # niri's overview — the niri layer-rule does that, and it moves this
+      # surface into the backdrop too, where the surface can no longer dim
+      # anything. All it did there was tint the overview *outside* the
+      # workspace rectangles, which is exactly the translucent bordered pane
+      # that showed on every workspace. Off, the surface is not created at all.
+      backdrop.enabled = false;
+
+      # On-screen display for volume, brightness, caps lock and friends.
+      # Noctalia defaults to top_center, which lands right where the top of the
+      # focused window is — the part of the screen you actually read. Bottom
+      # centre is what GNOME and Windows 11 both settle on, and it keeps the top
+      # strip free for the bar. offset_x is zeroed because with a centred anchor
+      # a horizontal offset only pushes the panel off-centre; the default 20 is
+      # meant for corner placements.
+      osd = {
+        position = "bottom_center";
+        offset_x = 0;
+        offset_y = 24;
       };
 
       # Noctalia can theme external apps from the active palette. ghostty is in
@@ -118,8 +132,24 @@
   };
 
   # Noctalia draws the wallpaper — Stylix only reads the image to derive its own
-  # palette, it never puts anything on screen. Noctalia wants a *directory*, and
-  # a nix store path is read-only and changes on every rebuild, so the wallpapers
-  # are materialised into the home directory instead.
-  home.file."Pictures/wallpapers".source = ../../themes/wallpapers;
+  # palette, it never puts anything on screen. Noctalia wants a *directory* to
+  # browse, and you want to drop new wallpapers into it from a file manager.
+  #
+  # `home.file."Pictures/wallpapers".source` cannot do that: it makes the whole
+  # directory one symlink into the nix store, so the folder comes out owned by
+  # root and mode r-xr-xr-x — nothing can be added to it and nothing removed.
+  # Instead the repo's wallpapers are seeded into a real directory as ordinary
+  # writable files. `cp -n` never overwrites, so anything you put there by hand,
+  # including a replacement for kanagawa-wave.png, survives every rebuild; and
+  # `--no-preserve=mode` drops the store's read-only bits from the copies.
+  #
+  # Runs after linkGeneration so home-manager has already removed the old store
+  # symlink; the guard below covers the one-time migration from it.
+  home.activation.seedWallpapers = lib.hm.dag.entryAfter ["linkGeneration"] ''
+    if [ -L "$HOME/Pictures/wallpapers" ]; then
+      run rm $VERBOSE_ARG "$HOME/Pictures/wallpapers"
+    fi
+    run mkdir -p $VERBOSE_ARG "$HOME/Pictures/wallpapers"
+    run cp -rn --no-preserve=mode ${../../themes/wallpapers}/. "$HOME/Pictures/wallpapers/"
+  '';
 }

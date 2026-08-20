@@ -14,7 +14,7 @@
     #
     # Caveat worth knowing: Stylix computes this at BUILD time while Noctalia
     # recomputes at runtime. Swap the wallpaper live and Noctalia follows
-    # immediately, but Stylix-themed apps (GTK, Qt, neovim, zed) only catch up
+    # immediately, but Stylix-themed apps (GTK, Qt, neovim) only catch up
     # on the next `nixos-rebuild switch`.
     image = ../../themes/wallpapers/kanagawa-wave.png;
 

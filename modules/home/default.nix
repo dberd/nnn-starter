@@ -7,7 +7,7 @@
     ./ssh.nix
     ./ghostty.nix
     ./neovim.nix
-    ./zed.nix
+    ./mime.nix
     ./gtk.nix
     ./niri.nix
     ./noctalia.nix
