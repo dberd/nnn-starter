@@ -17,6 +17,7 @@
     ./apps.nix
     ./media.nix
     ./vscodium.nix
+    ./workspace.nix
     # Discord: legcord (modules/nixos/gaming.nix), not upstream's vesktop.
   ];
 

@@ -37,11 +37,10 @@
 
     # ── Documents / notes / media ───────────────────────────────────────────
     onlyoffice-desktopeditors
-    # Notes: TriliumNext. Replaces logseq, whose nixpkgs package is frozen on
-    # the old file-based 0.10.x line and pinned to an EOL Electron (39.8.10).
-    # Trilium's own sync server is free and packaged too — `services.trilium-server`
-    # can host it declaratively once the second machine (T480s) exists.
-    trilium-desktop
+    # No dedicated notes app: the vaults are plain markdown in git
+    # (github.com/dberd/{EFKO,LongBoiPersonal}), edited in VSCodium. That is why
+    # TriliumNext was dropped — it keeps notes in its own database rather than in
+    # files, so nothing outside Trilium could read them.
     pinta # simple raster image editor
     spotify # official client (unfree)
     spotify-player # TUI client; needs a Premium account to stream
