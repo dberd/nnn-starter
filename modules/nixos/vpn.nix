@@ -8,11 +8,21 @@
   username,
   ...
 }: let
-  # nixpkgs' snx-rs does not give the GUI the libraries winit loads at runtime.
-  # winit dlopens libwayland-client rather than linking it, so nothing lands in
-  # the RPATH and `snx-rs-gui` dies immediately with
-  #   Error initializing winit event loop: The wayland library could not be loaded
-  # which is why no tray icon ever appeared — the process never got that far.
+  # nixpkgs' snx-rs does not give the GUI the libraries it loads at runtime.
+  # Despite the gtk4 in its buildInputs, snx-rs-gui is a Slint app (winit +
+  # glutin/glow); it dlopens everything below rather than linking it, so none of
+  # it lands in the RPATH and nothing is pulled into the runtime closure.
+  #
+  #   wayland + libxkbcommon — winit needs these just to start. Without them
+  #   the process dies immediately with "Error initializing winit event loop:
+  #   The wayland library could not be loaded" and no tray icon ever appears.
+  #
+  #   libglvnd — Slint's renderer dlopens libEGL.so.1 / libGL.so.1. Without
+  #   them the failure is *silent*: the tray icon appears and its menu works,
+  #   but Connect/Settings/Status open no window at all, with nothing on stderr
+  #   and nothing in the journal. libglvnd alone is enough — NixOS' EGL vendor
+  #   JSON points at mesa by absolute store path — but driverLink is included
+  #   so this keeps working under a non-mesa (e.g. NVIDIA) driver.
   #
   # The package is built with wrapGAppsHook4, so this appends to the wrapper it
   # already produces instead of nesting a second one around it.
@@ -21,7 +31,7 @@
       (old.preFixup or "")
       + ''
         gappsWrapperArgs+=(
-          --prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath [pkgs.wayland pkgs.libxkbcommon]}"
+          --prefix LD_LIBRARY_PATH : "${lib.makeLibraryPath [pkgs.wayland pkgs.libxkbcommon pkgs.libglvnd]}:${pkgs.addDriverRunpath.driverLink}/lib"
         )
       '';
   });
