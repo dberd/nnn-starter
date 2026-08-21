@@ -42,7 +42,7 @@
     };
   };
 
-  # Electron/Chromium apps (vscodium, element, logseq, legcord, throne) run as
+  # Electron/Chromium apps (vscodium, element, vesktop) run as
   # native Wayland clients instead of XWayland.
   #
   # NOTE: do NOT set GDK_BACKEND globally — that breaks the screencast portal.

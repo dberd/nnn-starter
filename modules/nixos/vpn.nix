@@ -1,6 +1,20 @@
-# VPN stack: Throne (general-purpose TUN proxy, replaces happ) + snx-rs
-# (Check Point corporate VPN), plus the split-routing fix that makes the two
-# coexist.
+# VPN stack: Throne (general-purpose proxy) + snx-rs (Check Point corporate
+# VPN), plus the split-routing fix that makes the two coexist.
+#
+# Throne stays, and the reason is worth recording, because a sing-box-only
+# replacement looks attractive until you test it. Throne's core bundles both
+# sing-box v1.13.6 and Xray-core, and this provider's VLESS+REALITY node only
+# completes a handshake under Xray: sing-box 1.13.14 fails it with "reality
+# verification failed" on parameters taken straight from the subscription —
+# with flow, without flow, under either uTLS fingerprint. The subscription's
+# third node is Hysteria2, which needs the same breadth. Anything sing-box-only
+# covers one node out of three.
+#
+# The price is that Throne fights the corporate VPN, and not through routing:
+# it works in nftables, ahead of the routing rules, and its output chain ends in
+# two catch-alls with no exemption for RFC1918 — every DNS query is redirected
+# to its own resolver, and every IPv4 TCP connection into its transparent proxy.
+# Step 5 of the routing script below is what defuses both.
 {
   config,
   lib,
@@ -42,10 +56,26 @@ in {
   # cap_net_admin/net_raw/net_bind_service (instead of upstream's setuid), and a
   # polkit rule so TUN mode can talk to systemd-resolved without prompting for a
   # password three times per connect.
+  #
+  # Kept while ruh-vpn is being brought up: removing it first left the machine
+  # with no working proxy at all, which was a mistake. It goes when the plugin
+  # is demonstrably doing its job, not before.
   programs.throne = {
     enable = true;
     tunMode.enable = true;
   };
+
+  environment.systemPackages =
+    [snx-rs]
+    ++ (with pkgs; [
+      # Standalone core, for testing a server outside Throne — which is how the
+      # REALITY limitation above was found. Not a service: nothing runs it.
+      sing-box
+      # nft is what the bypass in the routing script is written in, and it was
+      # missing entirely, which is why Throne's rules stayed invisible for so
+      # long: they live in nftables and iptables-save does not show them.
+      nftables
+    ]);
 
   # Reverse-path filtering drops the VPN's keepalive traffic: replies come back
   # on the tunnel rather than the interface the kernel would route to. snx-rs'
@@ -60,8 +90,7 @@ in {
   # its own. Connecting is `snxctl connect`, run as the user, and snxctl is what
   # reads the profile — from ~/.config/snx-rs/snx-rs.conf. That file holds the
   # corporate login and password, which is why it is neither in this repo nor
-  # in /etc. (Migration target: sops-nix.)
-  environment.systemPackages = [snx-rs];
+  # in /etc. It comes from sops-nix (modules/nixos/secrets.nix).
 
   systemd.services.snx-rs = {
     description = "snx-rs Check Point VPN core";
@@ -80,7 +109,7 @@ in {
   };
 
   # ── Split routing ─────────────────────────────────────────────────────────
-  # Ported from ~/Work/workspace-setup/vpn/snx-happ-routing.sh (happ → Throne;
+  # Ported from ~/Work/workspace-setup/vpn/snx-happ-routing.sh (happ → sing-box;
   # the mechanism is identical because both are sing-box front-ends, and the
   # table/priority numbers below are sing-box's own defaults).
   #
@@ -104,7 +133,7 @@ in {
   # restarts this unit. No separate "snx connected" trigger is needed: rule 5100
   # is installed unconditionally, and table 18000 is simply empty until it isn't.
   systemd.services.snx-vpn-routing = {
-    description = "snx-rs + Throne split routing fix";
+    description = "snx-rs + sing-box split routing fix";
     # nss-lookup.target: the script resolves the profile's gateway name with
     # getent. Without it a cold boot runs before the resolver is up, getent
     # quietly returns nothing, and only the static subnet list is left.
@@ -117,7 +146,9 @@ in {
     # getconf, not getent. It was missing here, so the lookup below silently
     # produced nothing on every boot and the profile's own gateway never got a
     # rule; only the three static subnets did.
-    path = with pkgs; [iproute2 gawk getent coreutils];
+    # iproute2 covers both `ip` and `ss`; systemd is here for resolvectl, which
+    # is what knows the nameservers the tunnel handed out.
+    path = with pkgs; [iproute2 gawk getent coreutils gnugrep gnused nftables systemd];
     # The hook restarts this on every event, and a reconnect emits a burst of
     # them within seconds. The default limit (5 starts per 10s) would drop the
     # unit into failed precisely when it is needed most.
@@ -153,8 +184,24 @@ in {
       SERVER=$(awk -F= '/^server-name=/{print $2; exit}' "$SNX_CONF" 2>/dev/null | tr -d '[:space:]')
       GW_SNX=$(getent hosts "$SERVER" 2>/dev/null | awk '{print $1; exit}')
 
+      # And the address snx actually ended up talking to. Resolving server-name
+      # only guesses which gateway got picked; the established socket is the
+      # answer. The two differ whenever the name is round-robin or the profile
+      # is switched, and a gateway outside the three static /24s would otherwise
+      # get no rule at all.
+      #
+      # The peer column is scanned for from the end of the line rather than by
+      # index: `ss` drops the State column when filtering by state, so a fixed
+      # $5 would silently read the wrong field. The trailing users:(...) blob
+      # does not look like addr:port, so the first match walking backwards is
+      # the peer.
+      GW_LIVE=$(ss -tnpH 2>/dev/null | awk '/snx-rs/ {
+          for (i = NF; i > 0; i--) if ($i ~ /^[0-9.]+:[0-9]+$/) { print $i; exit }
+        }' | awk -F: '{print $1}' | head -1)
+
       TARGETS="$EFKO_GW_NETS"
       [ -n "$GW_SNX" ] && TARGETS="$TARGETS ''${GW_SNX}/32"
+      [ -n "$GW_LIVE" ] && TARGETS="$TARGETS ''${GW_LIVE}/32"
       TARGETS=$(printf '%s\n' $TARGETS | sort -u)
 
       # 1) Every target gateway goes straight out the physical router (table 100).
@@ -172,6 +219,64 @@ in {
 
       # 3) Corporate traffic via snx-rs's table, ahead of sing-box's rules.
       ip rule add from all lookup 18000 priority 5100
+
+      # 4) The nameservers the gateway hands out are not necessarily inside the
+      #    routes it hands out. 10.1.0.16 was not: queries to it left through the
+      #    home router instead of the tunnel and were answered by whatever was
+      #    listening out there. Route each of them explicitly.
+      SNX_DNS=$(resolvectl dns snx-tun 2>/dev/null \
+        | sed 's/^[^:]*://' | tr ' ' '\n' | grep -E '^[0-9.]+$' || true)
+      for d in $SNX_DNS; do
+          ip route replace "$d" dev snx-tun table 18000 2>/dev/null || true
+      done
+
+      # 5) Everything above is routing, and routing is not where sing-box in TUN
+      #    mode makes its decisions. It works in nftables, before the routing
+      #    rules get a say, and its output chain ends in a catch-all:
+      #
+      #      chain output { type nat hook output priority mangle + 1
+      #        ... th dport 53 dnat ip to <its resolver>          # all DNS
+      #        ... meta l4proto tcp redirect to :<its port>       # all TCP
+      #
+      #    The only exemptions are 127.0.0.0/8 and the machine's own addresses —
+      #    nothing for RFC1918. So corporate traffic never reached snx-tun no
+      #    matter what table 18000 said: DNS was answered by a public resolver
+      #    (snx-tun's tx counter stayed at zero), and TCP was redirected into the
+      #    proxy, which then could not reach an internal host and dropped the
+      #    connection right after the TLS ClientHello.
+      #
+      #    A nat chain at a lower priority number runs first, and a DNAT to the
+      #    address the packet already carries still counts as a NAT decision: the
+      #    conntrack is flagged as translated, so sing-box's chain is skipped for
+      #    that flow. Rewriting an address to itself changes nothing else.
+      #
+      #    The set is built from table 18000 — the corporate routes the gateway
+      #    pushed — plus the nameservers, which are not necessarily inside them.
+      #    Harmless when sing-box runs as a plain local proxy: it installs no
+      #    firewall rules then, and the table is simply never consulted.
+      nft list table inet snx-bypass >/dev/null 2>&1 \
+        && nft delete table inet snx-bypass || true
+      CORP=$(ip route show table 18000 2>/dev/null | awk '$1 ~ /^[0-9]/ {print $1}')
+      ELEMENTS=$(printf '%s\n' $CORP $SNX_DNS | sort -u | paste -sd, -)
+      if [ -n "$ELEMENTS" ]; then
+          {
+            echo "table inet snx-bypass {"
+            echo "  set corp {"
+            echo "    type ipv4_addr"
+            echo "    flags interval"
+            # The gateway pushes both aggregates and single hosts inside them
+            # (10.2.0.0/18 and 10.2.0.2), which a plain interval set rejects as
+            # conflicting. auto-merge folds the overlaps instead.
+            echo "    auto-merge"
+            echo "    elements = { $ELEMENTS }"
+            echo "  }"
+            echo "  chain output {"
+            echo "    type nat hook output priority -160; policy accept;"
+            echo "    ip daddr @corp counter dnat ip to ip daddr"
+            echo "  }"
+            echo "}"
+          } | nft -f -
+      fi
     '';
   };
 

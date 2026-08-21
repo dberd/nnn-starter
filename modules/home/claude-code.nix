@@ -7,6 +7,11 @@
   # Throne's local inbound. It is a "mixed" listener, so the same port speaks
   # both SOCKS and HTTP — confirmed from Throne's own log:
   #   inbound/mixed[mixed-in]: tcp server started at 127.0.0.1:2080
+  #
+  # Stays on Throne until ruh-vpn takes over. The plugin's ports differ per
+  # routing mode (backend/singbox/config_builder.py): transport/socks 11080,
+  # rules/mixed 11081, global/mixed 11082 — 11081 is the one to move to, since
+  # `rules` is the mode that leaves corporate DNS alone.
   proxyPort = 2080;
 in {
   # Claude Code — Anthropic's official CLI (binary: `claude`). Marked unfree, so
@@ -19,11 +24,11 @@ in {
   # settings.json file is only written once you provide some.
   programs.claude-code.enable = true;
 
-  # Confine Claude Code's traffic to the proxy tunnel: if Throne isn't running,
-  # nothing is listening on the port and connections are refused rather than
-  # falling back to the plain uplink. Shadowing the command (rather than adding
-  # a second one) means this also covers the VSCodium extension, which spawns
-  # the CLI as a child process and inherits the environment.
+  # Confine Claude Code's traffic to the proxy tunnel: when the plugin has no
+  # connection up, nothing is listening on the port and connections are refused
+  # rather than falling back to the plain uplink. Shadowing the command (rather
+  # than adding a second one) means this also covers the VSCodium extension,
+  # which spawns the CLI as a child process and inherits the environment.
   #
   # This is application-level, not packet-level: it relies on Claude Code
   # honouring the proxy variables. The kernel-level alternative would need a
