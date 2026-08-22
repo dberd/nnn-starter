@@ -1,14 +1,33 @@
 # VPN stack: Throne (general-purpose proxy) + snx-rs (Check Point corporate
 # VPN), plus the split-routing fix that makes the two coexist.
 #
-# Throne stays, and the reason is worth recording, because a sing-box-only
-# replacement looks attractive until you test it. Throne's core bundles both
-# sing-box v1.13.6 and Xray-core, and this provider's VLESS+REALITY node only
-# completes a handshake under Xray: sing-box 1.13.14 fails it with "reality
-# verification failed" on parameters taken straight from the subscription —
-# with flow, without flow, under either uTLS fingerprint. The subscription's
-# third node is Hysteria2, which needs the same breadth. Anything sing-box-only
-# covers one node out of three.
+# Throne stays for now, but the earlier note here overstated the case for it and
+# is corrected: each of the three subscription nodes was run through plain
+# sing-box 1.13.14 on a socks inbound of its own (22.08), and two of the three
+# carried traffic.
+#
+#   LV  vless + tls + xtls-rprx-vision      works
+#   FR  vless + reality + vision            "reality verification failed"
+#   FR  hysteria2 + salamander obfs         works
+#
+# So Hysteria2 is not the obstacle — nixpkgs' sing-box is built with_quic and
+# speaks it natively; that limitation belongs to the ruh-vpn plugin's server
+# model, not to sing-box. Nor is REALITY, and this is where the earlier note was
+# wrong: the same profile was put through Xray-core 26.3.27 — the very core
+# Throne bundles — and it fails there too, with "received real certificate
+# (potential MITM or redirection)". That is the same event sing-box reports as
+# "reality verification failed": the server did not accept our keys, so it did
+# what a REALITY server does with a stranger and passed us to the real site.
+# fr.vavn.pro:443 duly answers with a genuine Let's Encrypt certificate for its
+# own name, while Hysteria2 to the same host on UDP 443 carries traffic fine.
+# Throne's own latency test on that profile recorded -1 the day it was imported.
+# The node has never worked on this machine under any core; the subscription
+# snapshot dates from 18.08 and wants refreshing before the profile is judged.
+#
+# What Throne is still the only thing providing: the tray icon, the server
+# picker and the subscription updates. sing-box's own answer to that is the
+# Clash API, which Throne's core exposes too (`core_box_clash_api` in its
+# settings), so a widget of ours can drive either core over the same HTTP.
 #
 # The price is that Throne fights the corporate VPN, and not through routing:
 # it works in nftables, ahead of the routing rules, and its output chain ends in
@@ -220,6 +239,20 @@ in {
       # 3) Corporate traffic via snx-rs's table, ahead of sing-box's rules.
       ip rule add from all lookup 18000 priority 5100
 
+      # 3a) snx creates the tunnel device first and installs its routes and its
+      #     resolver a moment later, so a run triggered by the device appearing
+      #     lands in the gap: table 18000 is still empty, nothing gets bypassed,
+      #     and the unit reports success. Wait for the table instead of racing
+      #     it. 20 s is generous next to the second it actually takes, and the
+      #     loop is skipped entirely when there is no tunnel — which is the
+      #     normal state at boot.
+      if ip link show snx-tun >/dev/null 2>&1; then
+          for _ in $(seq 20); do
+              [ -n "$(ip route show table 18000 2>/dev/null)" ] && break
+              sleep 1
+          done
+      fi
+
       # 4) The nameservers the gateway hands out are not necessarily inside the
       #    routes it hands out. 10.1.0.16 was not: queries to it left through the
       #    home router instead of the tunnel and were answered by whatever was
@@ -254,6 +287,30 @@ in {
       #    pushed — plus the nameservers, which are not necessarily inside them.
       #    Harmless when sing-box runs as a plain local proxy: it installs no
       #    firewall rules then, and the table is simply never consulted.
+      #
+      #    That defuses the nat hook and nothing else, which turns out not to
+      #    be enough: sing-box hooks output four times over, and only one of
+      #    the four is nat.
+      #
+      #    Its own chains all open with the same two rules — `meta mark 0x2024
+      #    return` and `ct mark 0x2024 return`. 0x2024 is the mark sing-box puts
+      #    on the sockets it opens itself, so that its own traffic does not fall
+      #    back into its own tunnel. Setting that mark on corporate traffic from
+      #    a chain that runs before any of its four is therefore one lever that
+      #    lifts all of them at once, and it is the only lever that reaches
+      #    output_udp_icmp: that chain is `type route`, not nat, so no NAT
+      #    decision of ours can preempt it, and UDP to a corporate address was
+      #    still being marked 0x2023 and routed into the TUN by rule 9001.
+      #
+      #    The mark is read back out of Throne's own ruleset rather than
+      #    hardcoded, so a change of constant upstream turns into a mismatch we
+      #    can see instead of a silent leak. The nat chain below stays as well:
+      #    it rests on kernel NAT semantics rather than on a constant, and the
+      #    two together cover the hook from both sides.
+      BYPASS_MARK=$(nft list chain inet sing-box output 2>/dev/null \
+        | awk '$1 == "meta" && $2 == "mark" && $NF == "return" {print $3; exit}')
+      [ -n "$BYPASS_MARK" ] || BYPASS_MARK=0x2024
+
       nft list table inet snx-bypass >/dev/null 2>&1 \
         && nft delete table inet snx-bypass || true
       CORP=$(ip route show table 18000 2>/dev/null | awk '$1 ~ /^[0-9]/ {print $1}')
@@ -270,6 +327,14 @@ in {
             echo "    auto-merge"
             echo "    elements = { $ELEMENTS }"
             echo "  }"
+            # -200 is ahead of all four of sing-box's chains; the earliest of
+            # them, output_prematch, sits at mangle - 1 = -151. `type route` is
+            # what makes the kernel redo the route lookup after the mark
+            # changes, and ct mark carries the decision to the rest of the flow.
+            echo "  chain output_mark {"
+            echo "    type route hook output priority -200; policy accept;"
+            echo "    ip daddr @corp meta mark set $BYPASS_MARK ct mark set meta mark counter accept"
+            echo "  }"
             echo "  chain output {"
             echo "    type nat hook output priority -160; policy accept;"
             echo "    ip daddr @corp counter dnat ip to ip daddr"
@@ -278,6 +343,30 @@ in {
           } | nft -f -
       fi
     '';
+  };
+
+  # The NetworkManager hook below covers everything NetworkManager knows about,
+  # and snx-tun is not one of those things: the tunnel is created by snx-rs
+  # directly, so connecting emits no dispatcher event and the rules were only
+  # refreshed if you remembered to restart this unit by hand. udev does announce
+  # the interface, though, and systemd turns that into a device unit — so hang
+  # the refresh off the device instead.
+  systemd.services.snx-vpn-routing-trigger = {
+    description = "Refresh split routing when snx-rs brings its tunnel up";
+    # The escape in the unit name is systemd's own encoding of the '-' in
+    # snx-tun, not something we get to choose.
+    wantedBy = ["sys-subsystem-net-devices-snx\\x2dtun.device"];
+    after = ["sys-subsystem-net-devices-snx\\x2dtun.device"];
+    serviceConfig = {
+      Type = "oneshot";
+      # restart, not start: snx-vpn-routing is RemainAfterExit, and starting a
+      # unit that is already active does nothing at all — which is precisely the
+      # state it is in every time except the first connect after a boot.
+      #
+      # This unit deliberately does NOT set RemainAfterExit itself: it has to
+      # fall back to inactive to be startable again on the next reconnect.
+      ExecStart = "${config.systemd.package}/bin/systemctl restart snx-vpn-routing.service";
+    };
   };
 
   # Ask the kernel again on every network event. NetworkManager drops hooks like
