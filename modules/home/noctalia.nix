@@ -4,7 +4,70 @@
   inputs,
   username,
   ...
-}: {
+}: let
+  # The pinned community plugin tree with two defects taken out of
+  # mihomo-control, both of which stop its `service` entry from running — and
+  # that entry is the one that owns every HTTP request the plugin makes. The bar
+  # widget and the panel load either way, which is what makes the failure
+  # confusing: the plugin is visibly there and simply never shows a number.
+  #
+  # 1. Two `check(...)` calls in the self-test block at the end of service.luau
+  #    end their argument list with a trailing comma. Luau allows that in a
+  #    table constructor and not in a call, so the file does not compile at all:
+  #
+  #      [luau] luau_load failed … service.luau:673:
+  #      Expected expression after ',' but got ')' instead
+  #
+  #    This is not a version gap to wait out — luau 0.726, newer than anything
+  #    the shell carries, rejects it just the same. The plugin's own test runner
+  #    never catches it because it exercises group_logic.lua, not service.luau.
+  #
+  # 2. With that fixed, the service loads group_logic.lua by calling the global
+  #    `load`, which does not exist here: the host sandboxes the interpreter
+  #    (luaL_sandbox) and offers its own `require` instead. That require insists
+  #    on a relative path ending in .luau, which is exactly why the plugin
+  #    reached for `load` — its helper is named .lua so that plain-Lua unit
+  #    tests can dofile() it. So the helper is copied under a second name and
+  #    the loader rewritten to require it; the .lua original stays where the
+  #    tests expect it.
+  #
+  # Both edits are anchored on content rather than line numbers, and the build
+  # fails if either stops matching — a fix upstream should surface as a rebuild
+  # error, not as a patch that quietly does nothing. luau-compile over every
+  # entry afterwards is the proof that what ships actually parses.
+  communityPlugins = pkgs.runCommand "noctalia-community-plugins-patched" {
+    nativeBuildInputs = [pkgs.luau];
+  } ''
+    cp -r ${inputs.noctalia-community-plugins} $out
+    chmod -R u+w $out
+    cd $out/mihomo-control
+
+    before=$(grep -c ',$' service.luau)
+    sed -i -z 's/,\n\(\s*)\)/\n\1/g' service.luau
+    [ "$(grep -c ',$' service.luau)" -lt "$before" ] \
+      || { echo "trailing-comma patch matched nothing"; exit 1; }
+
+    grep -q 'load(source, "@group_logic.lua")' service.luau \
+      || { echo "group_logic loader is not what we expected"; exit 1; }
+    cp group_logic.lua group_logic.luau
+    cat > repl.txt <<'EOF'
+
+    local function require_group_logic()
+      if group_logic == nil then
+        group_logic = require("./group_logic.luau")
+      end
+      return group_logic
+    end
+    EOF
+    sed -i -e '/^local function require_group_logic()$/,/^end$/d' \
+           -e '/^local group_logic$/r repl.txt' service.luau
+    rm repl.txt
+
+    for f in *.luau; do
+      luau-compile --binary "$f" > /dev/null || { echo "$f does not parse"; exit 1; }
+    done
+  '';
+in {
   # The Noctalia desktop shell: bar, launcher, notifications, control center,
   # lock screen and wallpaper, all in one.
   programs.noctalia = {
@@ -54,6 +117,69 @@
       # transient units they outlive the shell.
       shell.launch_apps_as_systemd_services = true;
 
+      # ── Proxy widget ──────────────────────────────────────────────────────
+      # The bar's control surface for the sing-box in modules/nixos/singbox.nix.
+      # It is `mihomo-control`, written for Mihomo (Clash Meta), and it works
+      # unchanged against sing-box because both answer the same Clash external
+      # controller API — the endpoints it calls were checked one by one against
+      # our build before this was wired up: /proxies with the selector's `now`
+      # and `all`, PUT /proxies/<group> to switch, /connections for the running
+      # totals, /group/<name>/delay to time every node at once.
+      #
+      # It replaced a draft that pointed at ruh-vpn, whose backend is a Python
+      # service of its own and whose server model has no room for Hysteria2 —
+      # which is the transport of the node actually in use here.
+      #
+      # Declaring `source` replaces Noctalia's two built-in git sources rather
+      # than adding to them, which is the point: upstream would clone the
+      # community repository at whatever HEAD happened to be current, while a
+      # `path` source is documented as "an immutable local directory (e.g. a Nix
+      # store path) the host treats read-only" — so the plugin version is pinned
+      # in flake.lock and update/auto-update become no-ops.
+      plugins = {
+        # Background git pulls, off. This is a `plugins`-level setting taking
+        # "all"|"official"|"none" — it used to be a boolean on each source, and
+        # left there it is silently ignored ("plugins.source.auto_update:
+        # unknown setting" in the shell log). Our only source is a store path
+        # the host treats as read-only anyway; this stops the shell from
+        # reaching for the network on startup and every six hours besides.
+        auto_update = "none";
+        source = [
+          {
+            name = "community-pinned";
+            kind = "path";
+            location = "${communityPlugins}";
+            enabled = true;
+          }
+        ];
+        enabled = ["mdj2812/mihomo-control"];
+      };
+
+      # Control centre tiles are replaced wholesale like the widget lists, so
+      # the six defaults are restated here with the proxy mode switch appended.
+      control_center.shortcuts = [
+        {type = "wifi";}
+        {type = "bluetooth";}
+        {type = "caffeine";}
+        {type = "nightlight";}
+        {type = "notification";}
+        {type = "power_profile";}
+        {type = "mdj2812/mihomo-control:mode";}
+      ];
+
+      # Per-plugin settings live at the config root, not under [plugins].
+      # The port is sing-box's Clash API, deliberately not the conventional
+      # 9090: Throne would take that one if its own dashboard were ever switched
+      # on, and the two run side by side until Throne goes.
+      plugin_settings."mdj2812/mihomo-control" = {
+        host = "127.0.0.1";
+        port = "9091";
+        # cp.cloudflare.com rather than the gstatic default: the default is not
+        # reachable from here without the proxy, which makes every latency test
+        # look like a dead node.
+        test_url = "http://cp.cloudflare.com/";
+      };
+
       # Bar: `scale` is the overall size knob; padding is the vertical breathing
       # room. Capsules are how Noctalia separates sections — each group gets its
       # own backing, which reads as a divider between them.
@@ -77,6 +203,8 @@
           "notifications"
           "clipboard"
           "keyboard_layout"
+          # Plugin widgets are addressed as "<plugin id>:<entry id>".
+          "mdj2812/mihomo-control:widget"
           "network"
           "bluetooth"
           "volume"
