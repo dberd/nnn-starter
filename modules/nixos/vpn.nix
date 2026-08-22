@@ -1,28 +1,30 @@
 # VPN stack: Throne (general-purpose proxy) + snx-rs (Check Point corporate
 # VPN), plus the split-routing fix that makes the two coexist.
 #
-# Throne stays for now, but the earlier note here overstated the case for it and
-# is corrected: each of the three subscription nodes was run through plain
-# sing-box 1.13.14 on a socks inbound of its own (22.08), and two of the three
-# carried traffic.
+# Throne stays for now, and the reason has been measured twice, because the
+# first measurement was taken against a stale subscription and pointed the wrong
+# way. The subscription was refetched from the provider on 22.08 and every node
+# retested; what follows is the corrected account.
 #
-#   LV  vless + tls + xtls-rprx-vision      works
-#   FR  vless + reality + vision            "reality verification failed"
-#   FR  hysteria2 + salamander obfs         works
+#   LV  vless + tls + xtls-rprx-vision   sing-box: works
+#   FR  hysteria2 + salamander obfs      sing-box: works
+#   FR  vless + reality + vision         sing-box: "reality verification failed"
+#                                        Xray-core 26.3.27: works
 #
-# So Hysteria2 is not the obstacle — nixpkgs' sing-box is built with_quic and
+# Hysteria2 was never the obstacle — nixpkgs' sing-box is built with_quic and
 # speaks it natively; that limitation belongs to the ruh-vpn plugin's server
-# model, not to sing-box. Nor is REALITY, and this is where the earlier note was
-# wrong: the same profile was put through Xray-core 26.3.27 — the very core
-# Throne bundles — and it fails there too, with "received real certificate
-# (potential MITM or redirection)". That is the same event sing-box reports as
-# "reality verification failed": the server did not accept our keys, so it did
-# what a REALITY server does with a stranger and passed us to the real site.
-# fr.vavn.pro:443 duly answers with a genuine Let's Encrypt certificate for its
-# own name, while Hysteria2 to the same host on UDP 443 carries traffic fine.
-# Throne's own latency test on that profile recorded -1 the day it was imported.
-# The node has never worked on this machine under any core; the subscription
-# snapshot dates from 18.08 and wants refreshing before the profile is judged.
+# model. REALITY is the obstacle, and it is a client one, not a dead node: the
+# provider had rotated that node's public key and short id, and with the current
+# pair Xray-core completes the handshake while sing-box does not — 1.13.14 and
+# 1.13.18 alike, with flow and without, under either uTLS fingerprint, with the
+# short id as given and empty, and with or without spiderX. The earlier note in
+# this file said the node "has never worked here under any core"; that was true
+# of the keys we had, and false of the keys the provider now serves.
+#
+# So the two cores are not interchangeable for this subscription. What sing-box
+# cannot reach is one transport on a host whose other transport it handles
+# fine — the Hysteria2 node is the same machine — so the loss is a fallback, not
+# a location.
 #
 # What Throne is still the only thing providing: the tray icon, the server
 # picker and the subscription updates. sing-box's own answer to that is the
