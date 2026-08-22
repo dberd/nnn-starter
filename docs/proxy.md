@@ -36,8 +36,10 @@
 живой sing-box зелёный, недоступный красный.
 
 - **левый клик** — открыть панель;
-- **средний клик** — настройки виджета (что показывать рядом с иконкой: режим, трафик,
-  число соединений, текущая нода, задержка).
+- **средний клик** — настройки виджета в UI шелла. Пользоваться этим не стоит: там
+  расположение виджета в баре, и любая правка уедет в `~/.local/state/noctalia/settings.toml`,
+  который перебивает Nix и не откатывается вместе с поколением (раздел 8). Позиция задаётся
+  в `modules/home/noctalia.nix`, список `bar.default.end`.
 
 В панели:
 
@@ -105,23 +107,67 @@ git ls-remote https://gitlab.sddt.efko.ru/committees/backend.git | head -1
 
 ---
 
-## 6. Добавить или обновить ноду
+## 6. Подписки и ноды
 
-Подписок у sing-box нет — список нод живёт в репозитории, и это осознанный размен:
-воспроизводимость против автообновления. Порядок:
+У sing-box подписок нет вообще: список нод живёт в репозитории. Это осознанный размен —
+воспроизводимость против автообновления. Ниже три сценария.
 
-1. взять ссылку ноды (`vless://…`, `hy2://…`) или обновить подписку в Throne и вынуть
-   `outbound_json` из `~/.config/Throne/config/throne.db`, таблица `profiles`;
-2. положить ключи в sops:
+### 6.1 Обновить существующую подписку
+
+Пока Throne жив, проще всего его руками: группа `Vavn` → обновить. После этого свежие ноды
+лежат в его базе, откуда их видно так (ключи не печатаются):
+
+```fish
+cd /tmp
+cp ~/.config/Throne/config/throne.db* .
+nix run nixpkgs#sqlite -- throne.db "select id, name, type from profiles;"
+nix run nixpkgs#sqlite -- throne.db "select outbound_json from profiles;" \
+  | sed -E 's/("(uuid|password|public_key|short_id)"[[:space:]]*:[[:space:]]*")[^"]*/\1***/g'
+```
+
+Без Throne — напрямую по URL подписки. Он тоже лежит в его базе (`select url from groups;`),
+и его стоит забрать оттуда **до** сноса. Большинство провайдеров отдают base64-список ссылок:
+
+```fish
+curl -s "$SUB_URL" | base64 -d
+```
+
+Дальше в обоих случаях — 6.3.
+
+### 6.2 Добавить новую подписку (другой провайдер)
+
+Отличий от 6.1 нет: подписка — это просто список ссылок. Ноды из неё становятся такими же
+outbound'ами со своими тегами, каждая со своими секретами. Держи теги говорящими и
+уникальными (`vavn-lv`, `vavn-fr-hy2`) — по ним ты будешь выбирать ноду в панели.
+
+Сам URL подписки, если он нужен на будущее, кладётся туда же, в sops, отдельным ключом —
+он даёт доступ к твоим нодам и в репозитории ему не место.
+
+### 6.3 Положить ноду в конфигурацию
+
+1. Секреты — в sops (ключи, которые правда секретны: `uuid`, `password`, `obfs`,
+   `public_key`/`short_id` у REALITY):
 
    ```fish
-   nix develop
+   cd ~/nixos-config
+   nix develop          # приносит sops и age
    sops secrets/secrets.yaml
    ```
 
-3. добавить outbound в `modules/nixos/singbox.nix`, сославшись на секрет через
-   `{_secret = config.sops.secrets.<имя>.path;}`, и вписать его тег в список селектора;
-4. проверить конфиг до применения:
+   Имена ключей — по образцу существующих: `singbox-<провайдер>-<что это>`.
+
+2. Outbound — в `modules/nixos/singbox.nix`, рядом с остальными. Секретные поля пишутся не
+   значением, а ссылкой:
+
+   ```nix
+   uuid = {_secret = config.sops.secrets.singbox-vavn-uuid.path;};
+   ```
+
+   И три вещи, которые легко забыть: добавить `routing_mark = bypassMark;` (иначе соединение
+   уедет в чужой туннель, пока такой есть), вписать тег в список `outbounds` селектора, и
+   объявить сам секрет в блоке `sops.secrets` этого же модуля.
+
+3. Проверить **до** применения — конфиг собирается и валиден:
 
    ```fish
    nix eval --json .#nixosConfigurations.nnn-desktop.config.services.sing-box.settings \
@@ -129,14 +175,22 @@ git ls-remote https://gitlab.sddt.efko.ru/committees/backend.git | head -1
    sing-box check -c /tmp/sb.json
    ```
 
-5. `sudo nixos-rebuild switch --flake .#nnn-desktop` — нода появится в панели.
+4. Применить и убедиться, что нода реально работает:
+
+   ```fish
+   sudo nixos-rebuild switch --flake .#nnn-desktop
+   curl -s http://127.0.0.1:9091/proxies | jq '.proxies.proxy.all'
+   curl -s 'http://127.0.0.1:9091/group/proxy/delay?url=http%3A%2F%2Fcp.cloudflare.com&timeout=5000'
+   ```
+
+   Задержка `-1` или отсутствие ноды в ответе — значит сервер не принял параметры, и дальше
+   смотреть `journalctl -u sing-box`.
 
 Что sing-box умеет: VLESS, VMess, Trojan, Shadowsocks, TUIC, Hysteria2, WireGuard, SSH,
-с REALITY и uTLS. Чего не будет: импорта подписки одной ссылкой и автообновления ключей —
-если провайдер их ротирует, нода молча умирает и чинится руками.
-
----
-
+с REALITY и uTLS. Чего не будет: импорта подписки одной ссылкой, автообновления ключей и
+health-check'а с автопереключением. Если провайдер ротирует ключи часто, ручной путь
+становится дорогим — тогда имеет смысл вернуться к разговору про mihomo с `proxy-providers`,
+ценой того, что список нод переедет из репозитория в рантайм-кэш.
 ## 7. Диагностика
 
 ```fish
@@ -169,16 +223,40 @@ rg -i 'luau|plugin-service' ~/.cache/noctalia/noctalia.log | tail
 
 ---
 
-## 8. Откат
+## 8. Откат и одна ловушка
 
 ```fish
 sudo nixos-rebuild switch --rollback
 systemctl --user restart noctalia          # если дело в баре
 ```
 
-Состояния на диске у этой связки нет: конфиг Noctalia — read-only симлинк в стор,
-конфиг sing-box собирается заново при каждом старте службы. Поэтому откат поколения
-возвращает ровно то, что было.
+Конфиг sing-box собирается заново при каждом старте службы, а `~/.config/noctalia/config.toml`
+— read-only симлинк в стор. В этой части откат поколения возвращает ровно то, что было.
+
+**Но у Noctalia есть второй конфиг, и он сильнее.** Всё, что ты меняешь в её UI — порядок
+виджетов в баре, пороги, раскладка локскрина — пишется в
+
+```
+~/.local/state/noctalia/settings.toml
+```
+
+и **перебивает** то, что описано в Nix. Файл живёт в state, а не в конфиге, поэтому его не
+трогают ни rebuild, ни откат поколения. Симптом узнаваемый: правишь `bar.default.end` в
+`modules/home/noctalia.nix`, применяешь — и ничего не меняется.
+
+Вернуть контроль Nix'у — убрать перебитую секцию и перезапустить шелл:
+
+```fish
+cp ~/.local/state/noctalia/settings.toml /tmp/settings.toml.bak
+awk 'BEGIN{skip=0} /^\[/{skip = ($0=="[bar.default]")} !skip' \
+  ~/.local/state/noctalia/settings.toml > /tmp/settings.new
+cp /tmp/settings.new ~/.local/state/noctalia/settings.toml
+systemctl --user restart noctalia
+```
+
+(`[bar.default]` заменить на ту секцию, которую нужно вернуть под Nix.) Правило простое:
+если настройку хочется держать в репозитории — не трогать её в UI, а если уже тронул,
+вычистить её оттуда.
 
 ---
 

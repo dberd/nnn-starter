@@ -63,6 +63,46 @@
            -e '/^local group_logic$/r repl.txt' service.luau
     rm repl.txt
 
+    # 3. Not a defect, a preference: the bar icon. Upstream draws a glyph from a
+    #    font it ships itself (mihomo-glyph.ttf, the Mihomo cat), which makes it
+    #    the one thing in the bar that neither follows Stylix nor matches the
+    #    Tabler set every other widget uses. `ui.glyph` is the shell's own
+    #    primitive for exactly that, and shield-lock is a name the shell itself
+    #    uses for its security panels. The status colouring is kept — the icon
+    #    still goes red when the controller is unreachable — and so is the
+    #    custom-colour setting, so nothing about the widget's own options
+    #    changes.
+    grep -q 'text = MIHOMO_GLYPH,' widget.luau \
+      || { echo "widget icon block is not what we expected"; exit 1; }
+    cat > icon.txt <<'EOF'
+      local icon
+      do
+        local color = STATUS_ICON_COLORS[conn.status] or STATUS_ICON_COLORS.offline
+        if noctalia.getConfig("icon_color_mode") == "custom" then
+          color = noctalia.getConfig("icon_color") or "primary"
+        end
+        icon = ui.glyph({ name = "shield-lock", size = icon_size, color = color })
+      end
+    EOF
+    sed -i -e '/^  local icon$/,/^  end$/d' \
+           -e '/^  local icon_size = configured_icon_size()$/r icon.txt' widget.luau
+    rm icon.txt
+    grep -q 'ui.glyph({ name = "shield-lock"' widget.luau \
+      || { echo "icon replacement did not land"; exit 1; }
+
+    # 4. Mode names come back from the controller in the case the controller
+    #    uses, and the two do not agree: mihomo answers "rule", sing-box answers
+    #    "Rule". The plugin builds a translation key straight out of that string,
+    #    so every label turns into a miss — the log fills with
+    #    "plugin translation key 'panel.mode_Direct' not found" — and, worse, the
+    #    panel compares the same string against its lowercase button names, so
+    #    the active mode is never highlighted. Lowercasing it where it enters
+    #    state fixes label, highlight and notification at once; the value sent
+    #    back to the controller is untouched, and sing-box accepts either case.
+    grep -q 'and data.mode or state.config.mode' service.luau \
+      || { echo "mode assignment is not what we expected"; exit 1; }
+    sed -i 's/and data\.mode or state\.config\.mode/and string.lower(data.mode) or state.config.mode/' service.luau
+
     for f in *.luau; do
       luau-compile --binary "$f" > /dev/null || { echo "$f does not parse"; exit 1; }
     done
