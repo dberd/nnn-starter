@@ -46,17 +46,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # Community plugins for Noctalia, pinned rather than fetched at runtime.
-    # Noctalia's own plugin source kind `path` is documented as "an immutable
-    # local directory (e.g. a Nix store path) the host treats read-only", which
-    # is exactly what an input gives us: the plugin version is in flake.lock
-    # instead of being whatever git happened to hand the shell that morning.
-    # Not a flake — it is a plain repository of plugin directories.
-    noctalia-community-plugins = {
-      url = "github:noctalia-dev/community-plugins";
-      flake = false;
-    };
-
     # Zen browser (not in nixpkgs). It's a repackaged binary (fixed-output
     # download + wrapFirefox), so following our nixpkgs is cheap and avoids a
     # duplicate nixpkgs in the closure.

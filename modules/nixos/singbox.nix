@@ -103,6 +103,12 @@ in {
       # HTTPS_PROXY/ALL_PROXY pair point at it. Bound to loopback only: this is
       # a proxy for this machine, and nothing on the LAN has any business
       # reaching it.
+      # tun-in tried 22.08, reverted same day: 172.19.0.1/30 collided with
+      # Throne's own throne-tun (same address, different mask), and auto_route
+      # put its policy rule at priority 1 — ahead of everything, including our
+      # own outbounds' routing_mark, with no exclusion rule for it. sing-box's
+      # own hysteria2 outbound then looped into its own tun trying to resolve
+      # fr.vavn.pro. See docs/proxy.md §9 for the postmortem before trying again.
       inbounds = [
         {
           type = "mixed";

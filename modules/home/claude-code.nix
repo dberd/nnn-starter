@@ -12,7 +12,7 @@
   # routing mode (backend/singbox/config_builder.py): transport/socks 11080,
   # rules/mixed 11081, global/mixed 11082 — 11081 is the one to move to, since
   # `rules` is the mode that leaves corporate DNS alone.
-  proxyPort = 2080;
+  proxyPort = 2081;
 in {
   # Claude Code — Anthropic's official CLI (binary: `claude`). Marked unfree, so
   # it relies on the allowUnfree set in flake.nix.

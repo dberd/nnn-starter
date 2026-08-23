@@ -78,9 +78,20 @@ in {
   # polkit rule so TUN mode can talk to systemd-resolved without prompting for a
   # password three times per connect.
   #
-  # Kept while ruh-vpn is being brought up: removing it first left the machine
-  # with no working proxy at all, which was a mistake. It goes when the plugin
-  # is demonstrably doing its job, not before.
+  # Stays for good (decided 22.08): it is the only thing that covers games and
+  # Steam, which don't read proxy env vars and mostly can't be proxied at the
+  # application level at all. sing-box's own TUN was tried the same day as a
+  # replacement and reverted — see docs/proxy.md §9 for why.
+  #
+  # The upstream module has no systemd unit of its own — only the package and
+  # ThroneCore's capabilities — so it has always been a manual "launch it from
+  # the app list" step. A systemd.user.services.throne bound to
+  # graphical-session.target was tried on 23.08 to autostart it and reverted
+  # the same day: the GUI showed a "cannot set suid for ThroneCore" error on
+  # its very first autostart after a real reboot, even though
+  # /run/wrappers/bin/ThroneCore carried the right capabilities at the time —
+  # root cause not pinned down, not worth re-guessing at on a live connection.
+  # See docs/proxy.md §9.
   programs.throne = {
     enable = true;
     tunMode.enable = true;

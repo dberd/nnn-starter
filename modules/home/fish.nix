@@ -40,5 +40,31 @@
       # Keep fish inside `nix-shell` instead of falling back to bash.
       ${pkgs.any-nix-shell}/bin/any-nix-shell fish | source
     '';
+
+    # sing-box's Clash API on 127.0.0.1:9091 (modules/nixos/singbox.nix) — the
+    # same control surface the bar widget drives, reachable directly and
+    # without it. See docs/proxy.md, section 2.
+    functions = {
+      proxy-node = {
+        description = "Switch the sing-box proxy node (vavn-lv / vavn-fr-hy2 / direct)";
+        body = ''
+          curl -s -X PUT http://127.0.0.1:9091/proxies/proxy \
+              -d (printf '{"name":"%s"}' $argv[1]) >/dev/null
+        '';
+      };
+      proxy-mode = {
+        description = "Switch the sing-box routing mode (Rule / Global / Direct)";
+        body = ''
+          curl -s -X PATCH http://127.0.0.1:9091/configs \
+              -d (printf '{"mode":"%s"}' $argv[1]) >/dev/null
+        '';
+      };
+      proxy-status = {
+        description = "Show the current sing-box proxy node and available nodes";
+        body = ''
+          curl -s http://127.0.0.1:9091/proxies/proxy | jq '{now, all}'
+        '';
+      };
+    };
   };
 }
