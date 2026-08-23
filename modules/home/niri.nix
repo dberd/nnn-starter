@@ -19,6 +19,15 @@
     # "unable to open a connection to X".
     xwayland-satellite.path = "${pkgs.xwayland-satellite-stable}/bin/xwayland-satellite";
 
+    # The HDMI monitor (MSI MP241X, DDC display 1) comes up at 90% brightness
+    # on its own — that's the panel's own remembered state, not anything niri
+    # or Noctalia sets, so nothing here overrides it without an explicit push.
+    spawn-at-startup = [
+      {
+        command = ["${pkgs.ddcutil}/bin/ddcutil" "setvcp" "10" "100" "--display" "1"];
+      }
+    ];
+
     input = {
       keyboard.xkb = {
         layout = "us,ru";
