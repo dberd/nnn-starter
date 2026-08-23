@@ -8,11 +8,12 @@
   # both SOCKS and HTTP — confirmed from Throne's own log:
   #   inbound/mixed[mixed-in]: tcp server started at 127.0.0.1:2080
   #
-  # Stays on Throne until ruh-vpn takes over. The plugin's ports differ per
-  # routing mode (backend/singbox/config_builder.py): transport/socks 11080,
-  # rules/mixed 11081, global/mixed 11082 — 11081 is the one to move to, since
-  # `rules` is the mode that leaves corporate DNS alone.
-  proxyPort = 2081;
+  # This used to point at a standalone sing-box instead, kept alive solely so
+  # Claude Code's route wouldn't depend on whatever node Throne was switched
+  # to. Retired 23.08 (docs/proxy.md §9): Throne is the one thing covering the
+  # rest of the system anyway, so decoupling Claude Code from it bought
+  # nothing but a second engine to run.
+  proxyPort = 2080;
 in {
   # Claude Code — Anthropic's official CLI (binary: `claude`). Marked unfree, so
   # it relies on the allowUnfree set in flake.nix.

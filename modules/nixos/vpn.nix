@@ -1,41 +1,21 @@
 # VPN stack: Throne (general-purpose proxy) + snx-rs (Check Point corporate
 # VPN), plus the split-routing fix that makes the two coexist.
 #
-# Throne stays for now, and the reason has been measured twice, because the
-# first measurement was taken against a stale subscription and pointed the wrong
-# way. The subscription was refetched from the provider on 22.08 and every node
-# retested; what follows is the corrected account.
+# Throne stays for good (settled 23.08, docs/proxy.md §9): it is the only
+# thing that covers games and Steam, which don't read proxy env vars and
+# mostly can't be proxied at the application level at all. A standalone
+# sing-box ran alongside it for a while — first as a way around a REALITY
+# node sing-box's client couldn't complete a handshake on, later narrowed to
+# just Claude Code once that REALITY chase was dropped — and was retired
+# entirely once Claude Code was pointed at Throne's own inbound instead of
+# running a second engine for one application. The full history is in
+# docs/proxy.md §9, not repeated here.
 #
-#   LV  vless + tls + xtls-rprx-vision   sing-box: works
-#   FR  hysteria2 + salamander obfs      sing-box: works
-#   FR  vless + reality + vision         sing-box: "reality verification failed"
-#                                        Xray-core 26.3.27: works
-#
-# Hysteria2 was never the obstacle — nixpkgs' sing-box is built with_quic and
-# speaks it natively; that limitation belongs to the ruh-vpn plugin's server
-# model. REALITY is the obstacle, and it is a client one, not a dead node: the
-# provider had rotated that node's public key and short id, and with the current
-# pair Xray-core completes the handshake while sing-box does not — 1.13.14 and
-# 1.13.18 alike, with flow and without, under either uTLS fingerprint, with the
-# short id as given and empty, and with or without spiderX. The earlier note in
-# this file said the node "has never worked here under any core"; that was true
-# of the keys we had, and false of the keys the provider now serves.
-#
-# So the two cores are not interchangeable for this subscription. What sing-box
-# cannot reach is one transport on a host whose other transport it handles
-# fine — the Hysteria2 node is the same machine — so the loss is a fallback, not
-# a location.
-#
-# What Throne is still the only thing providing: the tray icon, the server
-# picker and the subscription updates. sing-box's own answer to that is the
-# Clash API, which Throne's core exposes too (`core_box_clash_api` in its
-# settings), so a widget of ours can drive either core over the same HTTP.
-#
-# The price is that Throne fights the corporate VPN, and not through routing:
-# it works in nftables, ahead of the routing rules, and its output chain ends in
-# two catch-alls with no exemption for RFC1918 — every DNS query is redirected
-# to its own resolver, and every IPv4 TCP connection into its transparent proxy.
-# Step 5 of the routing script below is what defuses both.
+# The price of Throne is that it fights the corporate VPN, and not through
+# routing: it works in nftables, ahead of the routing rules, and its output
+# chain ends in two catch-alls with no exemption for RFC1918 — every DNS query
+# is redirected to its own resolver, and every IPv4 TCP connection into its
+# transparent proxy. Step 5 of the routing script below is what defuses both.
 {
   config,
   lib,
@@ -78,11 +58,6 @@ in {
   # polkit rule so TUN mode can talk to systemd-resolved without prompting for a
   # password three times per connect.
   #
-  # Stays for good (decided 22.08): it is the only thing that covers games and
-  # Steam, which don't read proxy env vars and mostly can't be proxied at the
-  # application level at all. sing-box's own TUN was tried the same day as a
-  # replacement and reverted — see docs/proxy.md §9 for why.
-  #
   # The upstream module has no systemd unit of its own — only the package and
   # ThroneCore's capabilities — so it has always been a manual "launch it from
   # the app list" step. A systemd.user.services.throne bound to
@@ -100,9 +75,6 @@ in {
   environment.systemPackages =
     [snx-rs]
     ++ (with pkgs; [
-      # Standalone core, for testing a server outside Throne — which is how the
-      # REALITY limitation above was found. Not a service: nothing runs it.
-      sing-box
       # nft is what the bypass in the routing script is written in, and it was
       # missing entirely, which is why Throne's rules stayed invisible for so
       # long: they live in nftables and iptables-save does not show them.
