@@ -55,6 +55,23 @@
       # Its home-manager module reuses HM's firefox module, so share ours.
       inputs.home-manager.follows = "home-manager";
     };
+
+    # rycee's Firefox-addons package set, for declaring Zen extensions instead
+    # of leaving them as profile state. Not a flake — a NUR subtree.
+    firefox-addons = {
+      url = "gitlab:rycee/nur-expressions?dir=pkgs/firefox-addons";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
+    # Helium (Blink-based) isn't in nixpkgs — upstream only publishes a .deb —
+    # so it comes from a community flake, same category of trust as
+    # zen-browser above. Chosen over the half-dozen equivalents for shipping
+    # its own home-manager module (programs.helium) rather than just a bare
+    # package.
+    helium-browser = {
+      url = "github:oxcl/nix-flake-helium-browser";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = {

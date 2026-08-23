@@ -1,9 +1,13 @@
 {
+  config,
   pkgs,
   inputs,
   ...
 }: {
-  imports = [inputs.zen-browser.homeModules.beta];
+  imports = [
+    inputs.zen-browser.homeModules.beta
+    inputs.helium-browser.homeModules.default
+  ];
 
   # GUI desktop apps. Browsers and file managers live here rather than in the
   # CLI bundle.
@@ -26,8 +30,12 @@
     zstd
 
     # ── Browsers ────────────────────────────────────────────────────────────
-    # Zen (below) stays the default; these are the alternates.
-    librewolf
+    # Zen (below) is the daily driver. Helium (below, Blink) is the second
+    # main browser rather than a fallback — librewolf held that "second
+    # Firefox-family browser" slot and was dropped 23.08 for never being
+    # configured. ungoogled-chromium is kept separately, specifically for
+    # testing (a plain, un-skinned Blink with no profile/extensions of its
+    # own to interfere).
     ungoogled-chromium
 
     # ── Communication ───────────────────────────────────────────────────────
@@ -84,6 +92,16 @@
   programs.zen-browser = {
     enable = true;
     setAsDefaultBrowser = true;
+
+    # The live profile (~/.config/zen/default/extensions.json, checked 23.08)
+    # carries exactly one real add-on beyond Firefox's own built-ins: uBlock
+    # Origin. Declaring it here means a fresh profile reproduces it instead of
+    # depending on whatever got installed by hand and when. Everything the
+    # extension itself holds — filter-list subscriptions, allowlist — is still
+    # profile state, same as logins and history; only its presence is Nix's.
+    profiles.default.extensions.packages = [
+      inputs.firefox-addons.packages.${pkgs.stdenv.hostPlatform.system}.ublock-origin
+    ];
   };
 
   # Paint Zen's chrome + about:/newtab pages with the same Kanagawa base16
@@ -91,4 +109,32 @@
   # userContent.css into the named profile and flips on the
   # `toolkit.legacyUserProfileCustomizations.stylesheets` pref for us.
   stylix.targets.zen-browser.profileNames = ["default"];
+
+  # Helium — Blink-based second main browser. Not in nixpkgs (upstream ships
+  # only a .deb); the community flake wraps that same .deb, same trust level
+  # as zen-browser above.
+  programs.helium.enable = true;
+
+  # ЕКП Диалог — the corporate web app, found on the CachyOS disk (23.08,
+  # ~/.local/share/applications/chrome-hdfohkpjjbepbloichpkklcenleblnjo-Default.desktop)
+  # and reproduced exactly: same flags, same isolated profile dir. The
+  # disable-features pair lifts Chromium's Local Network Access checks —
+  # dialog.efko.ru pulls from a private-network address, which a stock
+  # Chromium blocks outright — not anything proxy-related. Previously
+  # approximated with ungoogled-chromium; now that real Helium exists there's
+  # no need to approximate.
+  xdg.desktopEntries.ekp-dialog = {
+    name = "ЕКП Диалог";
+    genericName = "Corporate web app";
+    exec = "${config.programs.helium.package}/bin/helium --user-data-dir=${config.home.homeDirectory}/.local/share/helium-ekp-dialog --disable-features=LocalNetworkAccessChecks,LocalNetworkAccessChecksWebSockets --app=https://dialog.efko.ru";
+    icon = "web-browser";
+    terminal = false;
+    type = "Application";
+    categories = ["Network"];
+    # Noctalia's launcher search matched the transliterated "ekp" but not the
+    # actual Cyrillic "екп" against the uppercase "ЕКП" in Name — looks like
+    # its fuzzy match lowercases ASCII only. Keywords sidesteps it rather than
+    # depending on a fix upstream.
+    settings.Keywords = "ekp;dialog;efko;екп;диалог;";
+  };
 }
