@@ -1,30 +1,40 @@
-# Declarative partitioning for this host, describing the layout the disk already
-# has. Importing this only generates `fileSystems`; nothing is written to disk
-# until disko is invoked explicitly:
+# Declarative partitioning for this host. Importing this only generates
+# `fileSystems`; nothing is written to disk until disko is invoked explicitly:
 #
-#   sudo nix run github:nix-community/disko -- --mode disko \
-#     --flake ~/nixos-config#nnn-desktop      # DESTROYS the target disk
+#   nix build ~/nixos-config#nixosConfigurations.nnn-desktop.config.system.build.diskoScript \
+#     -o /tmp/disko-nvme
+#   sudo /tmp/disko-nvme                 # DESTROYS the target disk
+#
+# Building the script from this flake rather than running `nix run
+# github:nix-community/disko` pins the CLI to the same revision as the module
+# in flake.lock — see docs/migrate-to-nvme.md for the whole procedure.
 #
 # The device is addressed by stable id on purpose. Kernel names are not stable:
-# during this install the NixOS disk moved from /dev/sda to /dev/sdb, and
-# /dev/sda is now the Windows disk — a config naming /dev/sda would have wiped
+# during the first install the NixOS disk moved from /dev/sda to /dev/sdb, and
+# /dev/sda became the Windows disk — a config naming /dev/sda would have wiped
 # Windows the moment disko was run in anger.
 {...}: {
   disko.devices.disk.main = {
     type = "disk";
-    device = "/dev/disk/by-id/ata-ADATA_SU650_2K2020015098";
+    device = "/dev/disk/by-id/nvme-KINGSTON_SNV3S1000G_50026B7283A9CB50";
     content = {
       type = "gpt";
       partitions = {
         ESP = {
           priority = 1;
           name = "ESP";
-          # Match the label already on disk. Without this disko would derive
-          # "disk-main-ESP", which does not exist here — and the system would
-          # not find its filesystems at boot.
-          label = "ESP";
+          # Partition labels are unique across the machine on purpose. Disko
+          # derives `fileSystems.*.device` from them, so /etc/fstab mounts
+          # /dev/disk/by-partlabel/nixos-root — and the ADATA, which stays
+          # plugged in as the fallback system, still carries the old plain
+          # "ESP" and "nixos". Two partitions sharing a label make
+          # by-partlabel ambiguous: udev points the symlink at whichever
+          # device it saw last, and the wrong root gets mounted at boot.
+          label = "nixos-esp";
           start = "1M";
-          end = "1025M";
+          # 2 GiB. The old 1 GiB ESP sat at 8% with ten generations of limine,
+          # but an ESP cannot be grown later without moving what follows it.
+          end = "2049M";
           type = "EF00";
           content = {
             type = "filesystem";
@@ -34,13 +44,14 @@
           };
         };
         nixos = {
-          label = "nixos"; # as above: the on-disk label, not disko's derived name
+          label = "nixos-root"; # as above: unique while the old disk is around
           size = "100%";
           content = {
             type = "btrfs";
             extraArgs = ["-f" "-L" "nixos"];
-            # Subvolume names match what is on disk; the mount options are the
-            # ones the filesystem is actually mounted with today.
+            # Subvolume names and mount options match what the ADATA install
+            # has been running with, so the move changes nothing above the
+            # filesystem layer.
             subvolumes = let
               opts = ["compress=zstd:1" "noatime" "ssd" "discard=async"];
             in {

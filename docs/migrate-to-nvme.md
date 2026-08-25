@@ -118,7 +118,7 @@ cd ~/nixos-config && git add -A && git commit -m "Move nnn-desktop to the NVMe"
 ```sh
 nix build ~/nixos-config#nixosConfigurations.nnn-desktop.config.system.build.diskoScript \
   -o /tmp/disko-nvme
-sudo /tmp/disko-nvme/bin/disko          # destroy + format + mount, СТИРАЕТ NVMe целиком
+sudo /tmp/disko-nvme                   # destroy + format + mount, СТИРАЕТ NVMe целиком
 ```
 
 Проверка — должны появиться новые лейблы и смонтированное дерево в `/mnt`:
