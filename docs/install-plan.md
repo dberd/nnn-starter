@@ -6,6 +6,11 @@
 Документ описывает состояние на момент первой установки: какие решения приняты, почему, и что
 делать при повторении на другой машине.
 
+> **Разделы 1 и 3 описывают прошлое.** 25.08.2026 система переехала на NVMe: другой диск,
+> другие лейблы разделов, ESP на 2 ГиБ, в меню limine вместо CachyOS — откат на ADATA.
+> Актуальная разметка и загрузчик — `hosts/nnn-desktop/disko.nix`, `modules/nixos/boot.nix`
+> и [migrate-to-nvme.md](migrate-to-nvme.md). Всё остальное здесь по-прежнему в силе.
+
 ---
 
 ## 1. Железо и разметка
@@ -144,7 +149,7 @@ modules/nixos/
   gaming.nix                    Steam/gamescope/lutris/heroic — импортируется ТОЛЬКО десктопом
   vpn.nix                       throne + snx-rs + split-routing
   dev.nix                       nix-ld
-  boot.nix                      limine + чейнлоад CachyOS/Windows
+  boot.nix                      limine + чейнлоад ADATA/Windows
 modules/home/
   fish.nix                      замена zsh.nix
   dev.nix                       docker-clients, dbeaver, node, dotnet SDK
@@ -211,13 +216,19 @@ Nautilus**, а не GTK-диалог.
 
 ## 6. Что осталось
 
-- Убрать Nix с CachyOS, когда NixOS подтверждён рабочим:
-  `sudo umount /nix && sudo /root/nix-installer uninstall && sudo rm -rf /nix`
-  (именно `rm -rf`, а не `rmdir`: после ребута там появился каталог `var`).
-- Перенести с nvme: `~/.claude`, `~/.claude.json`, `~/Work/vscode-settings`
-  (`mount -o subvol=@home /dev/nvme0n1p2 /mnt/cachy`).
+- Стереть ADATA, когда система на NVMe себя покажет, и убрать за ней хвосты:
+  запись `/NixOS (ADATA, old disk)` из `modules/nixos/boot.nix` и `Limine (ADATA)`
+  из NVRAM (`efibootmgr -b 0003 -B`). Диск после этого — под библиотеку Steam.
 - `hosts/nnn-t480s/` по схеме из раздела 4.
-- `sops-nix` для `snx-rs.conf`.
-- `disko`, чтобы разметка из раздела 1 тоже стала частью репозитория.
-- Проверить `default_entry` в меню limine NixOS — не факт, что limine считает группу
-  `/+NixOS default profile` за отдельный пункт.
+
+Закрыто по ходу дела:
+
+- ~~Убрать Nix с CachyOS~~ — диск стёрт целиком 25.08.2026.
+- ~~Перенести с nvme `~/.claude`, `~/Work/vscode-settings`~~ — перенесено, диск сверен
+  целиком (migrate-to-nvme.md §0).
+- ~~`sops-nix` для `snx-rs.conf`~~ — `modules/nixos/secrets.nix`, три секрета.
+- ~~`disko`~~ — `hosts/nnn-desktop/disko.nix`, им же и размечался NVMe.
+- ~~Проверить `default_entry`~~ — да, limine считает группу `/+NixOS default profile`
+  отдельным пунктом: модуль ставит `default_entry: 2` (или `3`, если у поколения есть
+  специализации), и это указывает на самое свежее поколение. Плюс теперь включён
+  `remember_last_entry: yes`.

@@ -166,13 +166,15 @@ and PR:
 > (`nix flake lock`) and commit it, so CI and your machines resolve identical
 > inputs. Until then, each run pins the latest upstream automatically.
 
-## Notes / next steps (not included)
+## Notes / next steps
 
-- Secrets: add [sops-nix](https://github.com/Mic92/sops-nix) or
-  [agenix](https://github.com/ryantm/agenix).
-- Declarative disks: add [disko](https://github.com/nix-community/disko).
-- Multi-host: factor `hosts/` into one folder per machine and add more
-  `nixosConfigurations` entries.
+Upstream lists these as not included. This fork has since done all three:
+
+- Secrets: [sops-nix](https://github.com/Mic92/sops-nix) — `modules/nixos/secrets.nix`,
+  with the age key at `/var/lib/sops-nix/key.txt` as the one thing that cannot live here.
+- Declarative disks: [disko](https://github.com/nix-community/disko) —
+  `hosts/nnn-desktop/disko.nix`, which partitioned the current NVMe.
+- Multi-host: `hosts/` is one folder per machine; `hosts/nnn-t480s/` is the next one.
 
 ### Binary caches (no source builds)
 

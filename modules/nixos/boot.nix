@@ -2,10 +2,11 @@
   # Limine on UEFI, installed to THIS host's own ESP (/boot). It is deliberately
   # self-contained: it never writes to anyone else's ESP.
   #
-  # Boot layout on this machine:
-  #   nvme0n1p1  guid …            ESP of NixOS, this limine — FIRST in BootOrder
-  #   sda1       guid 7bffd8d6-…   ESP of the old NixOS on the ADATA
-  #   sdb1       guid 1fef5bef-…   ESP of Windows 10
+  # Boot layout on this machine. Kernel names shift when a USB stick comes and
+  # goes — the GUIDs are what the entries below actually resolve:
+  #   nvme0n1p1  guid 1126122a-…   ESP of NixOS, this limine — first in BootOrder
+  #   sdb1       guid 7bffd8d6-…   ESP of the old NixOS on the ADATA
+  #   sda1       guid 1fef5bef-…   ESP of Windows 10
   #
   # The 1 TB NVMe used to hold CachyOS and its own limine; both are gone, and so
   # is the chainload entry that pointed at them (docs/migrate-to-nvme.md).

@@ -34,6 +34,11 @@
           start = "1M";
           # 2 GiB. The old 1 GiB ESP sat at 8% with ten generations of limine,
           # but an ESP cannot be grown later without moving what follows it.
+          #
+          # Check `df -h /boot` right after running disko: the partition came
+          # out 2 GiB but mkfs.vfat laid a 1 GiB filesystem inside it, and the
+          # shortfall only bites once ten generations have piled up
+          # (docs/migrate-to-nvme.md, section 6).
           end = "2049M";
           type = "EF00";
           content = {
