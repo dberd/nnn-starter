@@ -12,14 +12,19 @@ CachyOS, который больше не нужен. Цель — перене�
 ## 0. Состояние до переезда
 
 ```
-sda        447G  ADATA SU650      ← NixOS сейчас
-├─sda1       1G  vfat  ESP        partlabel ESP    → /boot
-└─sda2     446G  btrfs nixos      partlabel nixos  → @ @home @nix @log @snapshots
-sdb        480G  KINGSTON SA400   ← Windows 10, не трогаем
+sdb        447G  ADATA SU650      ← NixOS сейчас
+├─sdb1       1G  vfat  ESP        partlabel ESP    → /boot
+└─sdb2     446G  btrfs nixos      partlabel nixos  → @ @home @nix @log @snapshots
+sda        480G  KINGSTON SA400   ← Windows 10, не трогаем
 nvme0n1    932G  KINGSTON SNV3S   ← CachyOS, будет стёрт целиком
 ├─nvme0n1p1  4G  vfat             ESP CachyOS, GUID 981dda21-…
 └─nvme0n1p2 928G btrfs            корень CachyOS
 ```
+
+**Буквы дисков не постоянны.** До того как вынули флешку EndeavourOS, ADATA был `sda`,
+а Windows — `sdb`; после — поменялись местами. Ни одна команда ниже не называет диск
+по `sd*`: только `by-id` (disko) и GPT-GUID (limine). Проверять глазами `lsblk` перед
+запуском — обязательно, но в командах эти буквы не появляются намеренно.
 
 Занято на ADATA 89 ГБ, из них 76 ГБ — библиотека Steam.
 
@@ -74,9 +79,14 @@ udev выбирает произвольно. Загрузка со старог
 Btrfs-лейбл (`-L nixos`) можно не трогать: по `by-label` в этой конфигурации ничего
 не монтируется.
 
-> **Не запускать `nixos-rebuild switch` на ADATA после этой правки.** Живая система
+> **Не запускать `nixos-rebuild switch` на ADATA с этой правкой.** Живая система
 > сразу перегенерирует fstab на `by-partlabel/nixos-root`, которого на ADATA нет,
-> и следующая загрузка провалится в initrd.
+> и следующая загрузка проваливается в initrd.
+>
+> Это не гипотеза: 25.08 правку закоммитили в рабочую ветку, следом сделали
+> пересборку ради расширений Zen — и поколение 62 не загрузилось ровно так.
+> Спасло меню limine: предыдущее поколение стартовало нормально. Поэтому правка
+> и вынесена в отдельную ветку (§1.3).
 
 ### 1.2 `modules/nixos/boot.nix`
 
@@ -93,18 +103,25 @@ Btrfs-лейбл (`-L nixos`) можно не трогать: по `by-label` в
 +          path: guid(7bffd8d6-d1f6-4e83-a6f6-c9035367f86d):/EFI/limine/BOOTX64.EFI
 ```
 
-Запись Windows (`1fef5bef-…`, `sdb1`) остаётся как есть. Схему дисков в шапке модуля
+Запись Windows (`1fef5bef-…`, сейчас `sda1`) остаётся как есть. Схему дисков в шапке модуля
 тоже обновить.
 
-### 1.3 Коммит
+### 1.3 Где эти правки живут до дня переезда
+
+Обе правки уже сделаны и лежат в ветке **`move-to-nvme`** (коммит `7ad3a4c`).
+В рабочей ветке `nnn-desktop` разметка остаётся адатовской — именно для того, чтобы
+обычная пересборка живой системы её не подхватила.
+
+В день переезда, перед шагом 1:
 
 ```sh
-cd ~/nixos-config && git add -A && git commit -m "Move nnn-desktop to the NVMe"
+cd ~/nixos-config
+git checkout move-to-nvme -- hosts/nnn-desktop/disko.nix modules/nixos/boot.nix
+git commit -am "Move nnn-desktop to the NVMe"
 ```
 
-Устанавливаемая система должна ссылаться на чистое дерево — иначе `nixos-install`
-ругается на dirty git tree, а `nixos-rebuild` на новом диске будет собирать не то,
-что закоммичено.
+Коммит обязателен: `nixos-install` на грязном git-дереве ругается, а `nixos-rebuild`
+на новом диске будет собирать не то, что закоммичено.
 
 ---
 

@@ -93,14 +93,27 @@
     enable = true;
     setAsDefaultBrowser = true;
 
-    # The live profile (~/.config/zen/default/extensions.json, checked 23.08)
-    # carries exactly one real add-on beyond Firefox's own built-ins: uBlock
-    # Origin. Declaring it here means a fresh profile reproduces it instead of
-    # depending on whatever got installed by hand and when. Everything the
-    # extension itself holds — filter-list subscriptions, allowlist — is still
-    # profile state, same as logins and history; only its presence is Nix's.
-    profiles.default.extensions.packages = [
-      inputs.firefox-addons.packages.${pkgs.stdenv.hostPlatform.system}.ublock-origin
+    # Zen's own sync account still lists ten add-ons; the profile itself lost
+    # every one of them on 21.08.2026 — weave/addonsreconciler.json flipped the
+    # lot to installed=false that morning, and extensions/ has held nothing but
+    # uBlock since. The previous version of this block declared "exactly one
+    # add-on" because that is what the profile honestly contained by then.
+    #
+    # Five of the ten are packaged, so Nix reinstates them below (alongside
+    # uBlock, which never went anywhere) and keeps them current.
+    # Absent from firefox-addons and still to be reinstalled by hand (or by
+    # turning add-on sync back on): Browsec VPN, AudD Music Recognition,
+    # YouTube Anti Translate, Postman Interceptor, Email Sent Dark Souls style.
+    #
+    # Only presence is Nix's business — filter lists, vaults and allowlists stay
+    # profile state, exactly like logins and history.
+    profiles.default.extensions.packages = with inputs.firefox-addons.packages.${pkgs.stdenv.hostPlatform.system}; [
+      ublock-origin
+      sponsorblock
+      bitwarden
+      privacy-badger
+      return-youtube-dislikes
+      pwas-for-firefox
     ];
   };
 
