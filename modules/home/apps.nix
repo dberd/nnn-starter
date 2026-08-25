@@ -107,6 +107,20 @@
     #
     # Only presence is Nix's business — filter lists, vaults and allowlists stay
     # profile state, exactly like logins and history.
+    # DuckDuckGo everywhere, including private windows. `force` is not optional:
+    # Zen replaces the search-config symlink on every launch, so without it the
+    # setting is undone the first time the browser starts. The cost is that this
+    # file becomes ours outright — any engine or keyword shortcut added by hand
+    # in the UI is replaced, not merged. "ddg" is an engine id, not a name; the
+    # full table is engineNameToId in home-manager's
+    # modules/programs/firefox/profiles/search.nix.
+    profiles.default.search = {
+      force = true;
+      default = "ddg";
+      privateDefault = "ddg";
+      order = ["ddg" "google"];
+    };
+
     profiles.default.extensions.packages = with inputs.firefox-addons.packages.${pkgs.stdenv.hostPlatform.system}; [
       ublock-origin
       sponsorblock
