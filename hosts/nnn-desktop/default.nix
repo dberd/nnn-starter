@@ -1,5 +1,8 @@
 # nnn-desktop — AMD Ryzen 7 5700X + Radeon RX 7700/7800 XT (Navi 32), 16 GiB,
-# two external monitors, UEFI, NixOS on the ADATA SSD (btrfs subvolumes, see disko.nix).
+# two external monitors, UEFI, NixOS on the Kingston NVMe (btrfs subvolumes, see
+# disko.nix). The ADATA still holds the previous system and stays bootable as a
+# fallback — see docs/migrate-to-nvme.md and the limine entries in
+# modules/nixos/boot.nix.
 {local, ...}: {
   imports = [
     ./hardware-configuration.nix

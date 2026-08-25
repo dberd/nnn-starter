@@ -24,11 +24,13 @@
   # so a single scalar monitorScale (as upstream has) can't express this.
   monitors = {
     "HDMI-A-2" = {
-      # MSI MP241X
+      # MSI MP241X. The panel does 75 Hz but advertises 60 as its preferred
+      # mode, so niri picks 60 unless the rate is asked for by name — which is
+      # why this sat at 60 for months. `niri msg outputs` lists both.
       mode = {
         width = 1920;
         height = 1080;
-        refresh = 60.0;
+        refresh = 75.0;
       };
       scale = 1.0;
       position = {
