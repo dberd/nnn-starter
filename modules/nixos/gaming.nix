@@ -15,30 +15,16 @@
   # CPU governor + niceness tweaks while a game is running.
   programs.gamemode.enable = true;
 
-  # Legcord 1.2.4 registers its internal `legcord://` scheme with
-  # `corsEnabled: false`, so shelter's fetch of legcord://plugins/*/plugin.json
-  # from the https://discord.com origin is blocked by Chromium's CORS check.
-  # None of the bundled shelter plugins install as a result — including
-  # `legcord-screenshare`, which draws the "Share" dialog that hands the picked
-  # PipeWire source back to the main process. Without it the portal dialog
-  # appears, the selection goes nowhere, and Discord receives no stream at all
-  # (no video and no audio). Flipping the flag is the whole fix; screencasting
-  # itself (niri's Mutter ScreenCast API + xdg-desktop-portal-gnome, see
-  # ./niri.nix) was never the problem.
+  # Legcord 1.2.4 registered its `legcord://` scheme with `corsEnabled: false`,
+  # which blocked shelter's fetch of legcord://plugins/*/plugin.json from the
+  # https://discord.com origin, so none of the bundled shelter plugins installed
+  # — `legcord-screenshare` among them, which is what hands the picked PipeWire
+  # source back to the main process. We patched the flag here.
   #
-  # Upstream bug, not a nixpkgs one — drop this once Legcord ships the fix.
-  nixpkgs.overlays = [
-    (_final: prev: {
-      legcord = prev.legcord.overrideAttrs (old: {
-        postPatch =
-          (old.postPatch or "")
-          + ''
-            substituteInPlace src/protocol.ts \
-              --replace-fail "corsEnabled: false" "corsEnabled: true"
-          '';
-      });
-    })
-  ];
+  # 1.3.0 ships `corsEnabled: true` itself, so the patch is gone: `--replace-fail`
+  # started failing the build precisely because there was nothing left to fix.
+  # (Screencasting itself — niri's Mutter ScreenCast API + xdg-desktop-portal-gnome,
+  # see ./niri.nix — was never part of this.)
 
   environment.systemPackages = with pkgs; [
     gamescope # micro-compositor: scaling, framelimit, FSR
