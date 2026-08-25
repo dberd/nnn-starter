@@ -99,7 +99,6 @@
           "active_window"
           "cpu"
           "ram"
-          "gpu"
         ];
 
         center = ["clock"];
@@ -122,19 +121,33 @@
         ];
       };
 
-      # A "widget" id is an instance, not a type: several ids can share
-      # `type = "sysmon"` and differ only by which statistic they read. `cpu` and
-      # `ram` already exist as defaults, this one does not. gpu_usage reads
-      # amdgpu's gpu_busy_percent.
+      # Per-widget settings. A "widget" id is an instance, not a type — several
+      # ids can share one `type` and differ only in their options, which is how
+      # the stock `cpu` and `ram` are both `type = "sysmon"`.
       #
-      # Valid stats, read out of the shell binary since the schema does not list
-      # them: cpu_usage, cpu_temp, ram_pct, swap_pct, gpu_usage, gpu_temp,
-      # gpu_vram_used, disk_used, disk_free, disk_used_pct, disk_free_pct,
-      # net_rx, net_tx. A swap tile was tried and dropped — with zram the number
-      # is rarely worth the width it costs in the bar.
-      widget.gpu = {
-        type = "sysmon";
-        stat = "gpu_usage";
+      # Swap and GPU tiles were both tried here and dropped: four numbers in a
+      # row cost more bar width than they were worth. If either comes back, the
+      # sysmon stats are cpu_usage, cpu_temp, ram_pct, swap_pct, gpu_usage,
+      # gpu_temp, gpu_vram_used, disk_used, disk_free, disk_used_pct,
+      # disk_free_pct, net_rx, net_tx — read out of the shell binary, since the
+      # schema does not enumerate them.
+      widget = {
+        # Trimmed from the default 260. The widget always prints the full window
+        # title and has no "app name only" mode: it renders the toplevel's title
+        # and falls back to the app id only when that title is empty. Narrowing
+        # it is therefore the only lever — and it has to stay generous, because
+        # the text is elided from the END, which is exactly where most apps put
+        # their own name ("file.md — VSCodium").
+        active_window.max_length = 240.0;
+
+        # Hide the player outright when nothing is playing, instead of parking a
+        # permanent "Nothing Playing" label in the bar.
+        #
+        # Note this key is absent from `noctalia config export full` — that dump
+        # skips booleans still sitting at their default. It is real: the shell
+        # binary carries the string and `noctalia config validate` accepts it
+        # without the "unknown setting" warning it raises for typos.
+        media.hide_when_no_media = true;
       };
 
       # Noctalia's backdrop is a tinted layer-shell surface meant to dim the
