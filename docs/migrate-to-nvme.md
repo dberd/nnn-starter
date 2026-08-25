@@ -122,23 +122,22 @@ Btrfs-лейбл (`-L nixos`) можно не трогать: по `by-label` в
 Запись Windows (`1fef5bef-…`, сейчас `sda1`) остаётся как есть. Схему дисков в шапке модуля
 тоже обновить.
 
-### 1.3 Где эти правки живут до дня переезда
+### 1.3 Статус: правки применены
 
-Обе правки уже сделаны и лежат в ветке **`move-to-nvme`** (коммит `7ad3a4c`).
-В рабочей ветке `nnn-desktop` разметка остаётся адатовской — именно для того, чтобы
-обычная пересборка живой системы её не подхватила.
+Обе лежат в рабочей ветке, коммит **`82b62b4`** («Move nnn-desktop to the NVMe»),
+вместе с `remember_last_entry: yes` в `extraConfig`. Ветка `move-to-nvme` (`7ad3a4c`)
+осталась как след того, где они жили, пока переезд был в планах.
 
-В день переезда, перед шагом 1:
+С этого момента **`nixos-rebuild switch` на ADATA запрещён** — см. врезку выше.
+Проверять конфигурацию только сборкой, без активации:
 
 ```sh
-cd ~/nixos-config
-git checkout move-to-nvme -- hosts/nnn-desktop/disko.nix modules/nixos/boot.nix
-git commit -am "Move nnn-desktop to the NVMe"
+nix build ~/nixos-config#nixosConfigurations.nnn-desktop.config.system.build.toplevel \
+  -o /tmp/nvme-system
 ```
 
-Коммит обязателен: `nixos-install` на грязном git-дереве ругается, а `nixos-rebuild`
-на новом диске будет собирать не то, что закоммичено.
-
+Замыкание уже собрано этой командой, так что `nixos-install` ниже сведётся
+к копированию store — сеть на шаге 3 не нужна.
 ---
 
 ## 2. День переезда
@@ -233,12 +232,37 @@ sudo rsync -aHAX --numeric-ids /var/lib/docker/ /mnt/var/lib/docker/
 nix shell nixpkgs#efibootmgr -c sudo efibootmgr -v
 ```
 
-Установщик limine создал запись для нового ESP. Нужно:
+Состояние до переезда (снято 25.08). Обрати внимание на `BootCurrent`:
 
-1. удалить запись `Limine (CachyOS)` — раздел, на который она ссылается, стёрт:
-   `… efibootmgr -b <NNNN> -B`
-2. поставить новую запись первой, старую NixOS второй, Windows следом:
-   `… efibootmgr -o <новый>,<ADATA>,<Windows>`
+```
+BootCurrent: 0002                     ← грузимся ЧЕРЕЗ limine с NVMe, он чейнлоадит наш NixOS
+BootOrder:   0002,0001,0019,0000,0008,000D
+
+0002* Limine (CachyOS)   NVMe  981dda21   → удалить, раздел стёрт
+0019* UEFI OS            NVMe  981dda21   → удалить, туда же
+0008  ubuntu             sda1  1fef5bef   → удалить, такого загрузчика там давно нет
+0001* Limine             ADATA 7bffd8d6   → оставить: это путь отката
+0000* Windows Boot Manager sda1 1fef5bef  → оставить
+000D  Hard Drive         BBS-список       → не трогать
+```
+
+Порядок действий:
+
+1. **Проверить, что `0001` цел.** Установщик limine однажды уже переиспользовал
+   именно этот слот (`docs/install-plan.md` §3), а сейчас в нём запись на ADATA.
+   Если её затёрло — пересоздать:
+   ```sh
+   … efibootmgr -c -d /dev/disk/by-id/ata-ADATA_SU650_2K2020015098 -p 1 \
+       -L "Limine (ADATA)" -l '\EFI\limine\BOOTX64.EFI'
+   ```
+2. Удалить мёртвые записи: `… efibootmgr -b 0002 -B`, `-b 0019 -B`, `-b 0008 -B`.
+3. Порядок — новый NixOS, ADATA, Windows:
+   `… efibootmgr -o <новый>,0001,0000`
+
+Пункта «настройки UEFI» в меню не будет: у limine 12.3.3 такого протокола нет
+(валидные — `linux`, `limine`, `multiboot`, `multiboot2`, `efi`, `efi_boot_entry`,
+`bios`), а NVRAM-записи для setup эта плата не заводит. Из системы то же самое
+делает `systemctl reboot --firmware-setup`.
 
 ### Шаг 8. Перезагрузка
 
