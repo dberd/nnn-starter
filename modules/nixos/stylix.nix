@@ -16,7 +16,11 @@
     # recomputes at runtime. Swap the wallpaper live and Noctalia follows
     # immediately, but Stylix-themed apps (GTK, Qt, neovim) only catch up
     # on the next `nixos-rebuild switch`.
-    image = ../../themes/wallpapers/kanagawa-wave.png;
+    # Keep this the same file as wallpaper.default.path in
+    # modules/home/noctalia.nix — both derive a palette from it, and pointing
+    # them at different pictures is how the desktop ends up in two colour
+    # schemes at once.
+    image = ../../themes/wallpapers/wallhaven-1pw769_2560x1440.png;
 
     # A hint of terminal transparency for that layered desktop look.
     opacity.terminal = 0.95;

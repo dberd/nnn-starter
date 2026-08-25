@@ -1,4 +1,5 @@
 {
+  config,
   local,
   pkgs,
   ...
@@ -71,12 +72,22 @@
       default-column-width.proportion = 1.0 / 2.0;
       # Stylix disables the focus-ring and themes the border instead, then we
       # disable that border below — so re-enable the ring explicitly here or
-      # nothing gets drawn. Thin, soft Kanagawa foreground on the focused
-      # window; transparent on the rest so only the selected one is outlined.
-      focus-ring = {
+      # nothing gets drawn. Thin outline on the focused window; transparent on
+      # the rest so only the selected one is marked.
+      #
+      # The colour comes from Stylix's palette rather than a literal, so it
+      # tracks stylix.image along with everything else Stylix paints. Note this
+      # is settled at BUILD time: niri reads a static KDL out of the store and
+      # knows nothing about Noctalia, so switching wallpaper or colour scheme in
+      # the Noctalia GUI moves its own surfaces immediately but leaves this
+      # where it is until the next rebuild. Making it live needs Noctalia's
+      # `niri` template, which works through `include "noctalia.kdl"` — a
+      # directive niri-stable 25.08 does not have (verified: "unexpected node
+      # `include`"; niri-unstable parses it fine).
+      focus-ring = with config.lib.stylix.colors.withHashtag; {
         enable = true;
         width = 2;
-        active.color = "#dcd7ba";
+        active.color = base0D;
         inactive.color = "#00000000";
       };
       border.enable = false;
