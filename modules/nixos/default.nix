@@ -10,6 +10,7 @@
     ./stylix.nix
     ./users.nix
     ./dev.nix
+    ./claude-code.nix
     ./secrets.nix
     ./vpn.nix
     ./docker.nix # optional: comment out if you don't want containers
