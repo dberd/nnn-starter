@@ -111,13 +111,25 @@
 
           {
             nixpkgs.config.allowUnfree = true;
-            # Vesktop builds Vencord with pnpm, which nixpkgs currently marks
-            # insecure. It's a build-time tool only; allow it by name so the rule
-            # survives pnpm version bumps.
+            # Packages nixpkgs marks insecure that this configuration needs anyway.
+            # Matching by name rather than by full version keeps the rule alive
+            # across version bumps:
+            #
+            #   pnpm               build-time tool for vesktop's Vencord, never run
+            #   dotnet-sdk         .NET 6 is EOL; still the SDK for the net6.0 class
+            #                      libraries in Committees and Calendar
+            #   aspnetcore-runtime .NET 7 is EOL; net7.0 WebApi hosts will not start
+            #                      without it (modules/home/dev.nix)
             #
             # Note: defining this predicate replaces permittedInsecurePackages
             # entirely — any future exception has to be added here.
-            nixpkgs.config.allowInsecurePredicate = pkg: nixpkgs.lib.getName pkg == "pnpm";
+            nixpkgs.config.allowInsecurePredicate = pkg:
+              builtins.elem (nixpkgs.lib.getName pkg) [
+                "pnpm"
+                "dotnet-sdk"
+                "dotnet-runtime"
+                "aspnetcore-runtime"
+              ];
             nixpkgs.overlays = [
               niri.overlays.niri
               noctalia.overlays.default
