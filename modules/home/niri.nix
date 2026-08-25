@@ -129,6 +129,51 @@
       }
     ];
 
+    # Per-window behaviour. A rule applies when ANY entry in `matches` matches
+    # (or there are none) AND NO entry in `excludes` does. Both `app-id` and
+    # `title` are regular expressions, not literals — hence the escaped dots and
+    # the ^…$ anchors below, without which "steam" would also catch "steamwebhelper".
+    #
+    # Find the two fields with `niri msg windows` on a running window. Beyond the
+    # ones used here, a rule can also set open-maximized, open-on-workspace,
+    # default-column-width, block-out-from and more.
+    #
+    # niri already floats dialogs and fixed-size windows on its own, so this list
+    # is only for the cases it gets wrong. Deliberately still short — workspace
+    # pinning for messengers and music is yours to fill in.
+    window-rules = [
+      # Steam's main window is worth the whole screen; everything else it opens
+      # (Friends, the overlay, download toasts) is a small companion window that
+      # should not take a column in the scrolling layout.
+      {
+        matches = [
+          {
+            app-id = "^steam$";
+            title = "^Steam$";
+          }
+        ];
+        open-fullscreen = true;
+      }
+      {
+        matches = [{app-id = "^steam$";}];
+        excludes = [{title = "^Steam$";}];
+        open-floating = true;
+      }
+
+      # Picture-in-Picture is a video overlay, not a document: floating, and
+      # small enough to sit in a corner rather than claim half a monitor.
+      {
+        matches = [
+          {
+            app-id = "^zen-beta$";
+            title = "^Picture-in-Picture$";
+          }
+        ];
+        open-floating = true;
+        default-column-width.fixed = 480;
+      }
+    ];
+
     # niri-flake's canonical attribute form: `action.<name> = <args>`. No-arg
     # actions take `{ }`; spawn takes a string or a list of argv strings.
     binds = {
