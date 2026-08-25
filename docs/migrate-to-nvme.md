@@ -28,20 +28,36 @@ nvme0n1    932G  KINGSTON SNV3S   ← CachyOS, будет стёрт целик�
 
 Занято на ADATA 89 ГБ, из них 76 ГБ — библиотека Steam.
 
-### Что забрать с NVMe ДО стирания
+### Что забрать с NVMe ДО стирания — ничего
 
-Проверено 25.08.2026; всё остальное на том диске либо уже перенесено, либо генерируется
-заново (`.cargo`, `go`, `fvm`, `.pub-cache`, `.vscode`, `.net`, `.templateengine`).
+Диск сверен целиком 25.08.2026 (`rsync --dry-run --ignore-existing` по всему хоуму
+CachyOS против нашего). Перенесено:
 
-| Что | Размер | Решение |
+| Что | Размер | |
 |---|---|---|
-| `~/Pictures/Wallpapers` | 38 МБ | **сделано** — 5 новых обоев лежат в `themes/wallpapers` |
-| `~/Work/Dumps` | 3.5 ГБ | **сделано** — в `~/Work/Dumps` |
-| `~/PersonalProjects`, `~/claude-chat-export.md` | 64 КБ | **сделано** |
-| `~/Games` | **56 ГБ** | не-Steam игры: ShadPS4, Amnesia, Elden Ring Reforged, PA TITANS. Нужно решить |
-| `~/.thunderbird` | 689 МБ | профиль почты; в конфиге NixOS thunderbird нет. Нужно решить |
+| `~/Pictures/Wallpapers` | 38 МБ | 5 новых обоев — в `themes/wallpapers`, под git |
+| `~/Work/Dumps` | 3.5 ГБ | в `~/Work/Dumps` |
+| `~/PersonalProjects`, `~/claude-chat-export.md` | 64 КБ | |
+| `~/docker/docker-dev.yml` | — | версия с memgraph — в `modules/home/files/` |
+| сейвы Elden Ring Reforged | 802 МБ | уже были здесь, сверено по md5, включая 25 бэкапов ERR |
 
-Монтировать источник только на чтение:
+Осознанно **не** переносится:
+
+| Что | Размер | Почему |
+|---|---|---|
+| Steam-библиотека | **466 ГБ** | BG3, Elden Ring, Arc Raiders, Ready Or Not, Nightreign, Helldivers 2… — скачаем заново |
+| `~/Games` | 56 ГБ | ShadPS4, Amnesia, Elden Ring Reforged, PA TITANS |
+| сейвы BG3 / BeamNG / shadPS4, база Anytype | 920 МБ | не нужны |
+| `~/.thunderbird` | 689 МБ | пакет есть в конфиге, профиль не нужен |
+| `Documents/Vaults` | 41 МБ | дубли того, что уже в `~/Notes` как git-репозитории |
+| расширения Zen | — | пять из десяти вернулись через nix, остальные не нужны |
+
+Всё прочее на том диске — кэши и сборочный мусор: `.angular` 3.7 ГБ, `node_modules`,
+`bin`/`obj`, `umu` 1.7 ГБ, `Trash` 1.5 ГБ, `workspace-setup.zip` 1.5 ГБ (распакованная
+копия есть), `.config/Code` 977 МБ, старый профиль zen, `.cargo`, `go`, `fvm`,
+`.pub-cache`, `.net`, `.templateengine`.
+
+Если всё же понадобится посмотреть на диск до стирания — монтировать только на чтение:
 
 ```sh
 sudo mkdir -p /mnt/cachy
