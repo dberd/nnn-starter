@@ -225,16 +225,51 @@
       # side by side.
       #
       # app-id read off `niri msg windows` on a live window: "org.gnome.Nautilus",
-      # dots escaped because matches are regexes, as the note above explains. The
-      # same id also covers Preferences and Properties, which niri already floats
-      # on its own as dialogs — for those the rule only changes the size.
+      # dots escaped because matches are regexes, as the note above explains.
+      {
+        matches = [{app-id = "^org\\.gnome\\.Nautilus$";}];
+        open-floating = true;
+      }
+
+      # The size, though, belongs to the browser window alone. Nautilus puts up
+      # auxiliary toplevels under the same app-id — Properties reached through
+      # the org.freedesktop.FileManager1 D-Bus interface is one — and they carry
+      # no title of their own, so GTK names the window after the app id, which
+      # is what the exclude keys off. Sized like a file manager they came out as
+      # a mostly empty 1200x760 sheet; excluded, they keep the size they ask
+      # for, which is what niri gives a dialog it was never told about.
+      #
+      # Right-click Properties and Compress… inside a window are unaffected
+      # either way: since GNOME 46 those are Adwaita dialogs drawn inside the
+      # parent window, and never become windows niri can see at all.
+      #
       # 1200x760 fits inside both outputs (1920x1080 and the 2133x1200 logical
       # Philips) with room left over for the bar.
       {
         matches = [{app-id = "^org\\.gnome\\.Nautilus$";}];
-        open-floating = true;
+        excludes = [{title = "^org\\.gnome\\.Nautilus$";}];
         default-column-width.fixed = 1200;
         default-window-height.fixed = 760;
+      }
+
+      # File Roller is what a double-click on an archive opens: xdg-mime hands
+      # it application/zip, x-tar, x-7z-compressed and gzip (modules/home/apps.nix
+      # installs it for exactly that). Same floating treatment as Nautilus, one
+      # size down — an archive listing is a column of names, not a two-pane
+      # browser.
+      #
+      # This is NOT the Compress… / Extract Here in Nautilus' own context menu.
+      # That path runs inside Nautilus through gnome-autoar and opens no window
+      # at all, so there is nothing here that could reach it.
+      #
+      # app-id off a live window: "org.gnome.FileRoller". Its Extract/Add
+      # dialogs and the portal's file chooser arrive as dialogs or under the
+      # portal's own app-id, and niri floats those unprompted.
+      {
+        matches = [{app-id = "^org\\.gnome\\.FileRoller$";}];
+        open-floating = true;
+        default-column-width.fixed = 900;
+        default-window-height.fixed = 600;
       }
     ];
 
