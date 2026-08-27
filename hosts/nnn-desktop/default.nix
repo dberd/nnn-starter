@@ -18,9 +18,14 @@
   # has no way to know the layout, so it is stated here — this is what keeps the
   # 2560x1440 panel from being cropped, and it mirrors local.monitors.
   #
-  # Everything else (palette, wallpaper, font) can be pushed over from the shell
-  # with Settings -> Security -> Noctalia Greeter -> Sync Now, or Auto-Sync.
-  # Keys set here live in greeter.toml and always win over anything Sync writes.
+  # Everything else (palette, wallpaper, font) comes over from the shell:
+  # Auto-Sync is on (see shell.greeter_sync in modules/home/noctalia.nix), and
+  # Settings -> Security -> Noctalia Greeter -> Sync Now pushes it by hand.
+  #
+  # Sync writes /var/lib/noctalia-greeter/sync.toml. Keys set here live in
+  # greeter.toml, which is a /nix/store symlink Sync never touches — and which
+  # wins over sync.toml for every key it carries. So do NOT add an `appearance`
+  # section below: a complete palette here makes Sync a no-op.
   programs.noctalia-greeter.settings = {
     session.default = "niri";
     output = {

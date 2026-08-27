@@ -29,6 +29,32 @@
       wallpaper = {
         directory = "/home/${username}/Pictures/wallpapers";
         default.path = "/home/${username}/Pictures/wallpapers/wallhaven-1pw769_2560x1440.png";
+
+        # Cross-fade the wallpaper in at shell start instead of having it snap
+        # onto the black background.
+        transition_on_startup = true;
+
+        # `default` is only the fallback for an output with no entry here. Both
+        # monitors are pinned, because the palette is derived from the image and
+        # two different images would mean the two screens disagree about the
+        # theme.
+        monitors = {
+          "DP-2".path = "/home/${username}/Pictures/wallpapers/wallhaven-1pw769_2560x1440.png";
+          "HDMI-A-2".path = "/home/${username}/Pictures/wallpapers/wallhaven-1pw769_2560x1440.png";
+        };
+
+        # The star in the wallpaper panel. Each entry remembers the theme that
+        # was in use when it was starred, so picking it again restores the whole
+        # look and not just the image. Replaced wholesale like every other list,
+        # so a star added in the GUI has to be brought back here.
+        favorite = [
+          {
+            path = "/home/${username}/Pictures/wallpapers/kanagawa-wave.png";
+            palette_source = "wallpaper";
+            theme_mode = "dark";
+            wallpaper_scheme = "m3-content";
+          }
+        ];
       };
 
       # Palette generated from the wallpaper, the same model DankMaterialShell
@@ -46,6 +72,13 @@
         source = "wallpaper";
         mode = "dark";
         wallpaper_scheme = "m3-tonal-spot";
+
+        # Picked while browsing palettes in the control center. Both are inert
+        # while `source` stays "wallpaper": they are read only when source is
+        # "builtin" or "community" respectively. Recorded so the picks survive,
+        # and so trying either is a one-word change to `source` above.
+        builtin = "Dracula";
+        community_palette = "One";
       };
 
       location.address = "Moscow, Russia";
@@ -55,6 +88,22 @@
       # switch off, which is why it reported "brightness control unavailable"
       # even once ddcutil and hardware.i2c were in place.
       brightness.enable_ddcutil = true;
+
+      # Push palette / wallpaper / theme mode to the login screen whenever they
+      # change, so the greeter matches the desktop instead of drifting away from
+      # it. Sync writes /var/lib/noctalia-greeter/sync.toml; the declarative
+      # greeter.toml (hosts/nnn-desktop/default.nix) is never touched by it and
+      # still wins for the keys it sets.
+      #
+      # privilege_command pins the escalation to pkexec. Left unset the shell
+      # prefers run0, whose polkit action is systemd1.manage-units — "run
+      # anything as root" — and that is not something to hand out without a
+      # password. pkexec's action is per-binary, which is what the rule in
+      # modules/nixos/noctalia.nix grants.
+      shell.greeter_sync = {
+        auto_sync = true;
+        privilege_command = "pkexec";
+      };
 
       # Apps launched from the launcher otherwise live inside Noctalia's own
       # cgroup, so restarting the shell takes them down with it — which is how
@@ -85,20 +134,65 @@
         margin_ends = 12;
         capsule = true;
 
+        # Capsule groups. A group is its own little pill in the bar: the widgets
+        # named in `members` are drawn together on one `fill` backing, and the
+        # group is then placed in start/center/end by its id as "group:<id>".
+        # Members are NOT also listed in start/end — a widget belongs either to
+        # a group or to the bar directly, never both.
+        #
+        # `fill = "surface_variant"` is the palette's raised surface, so the
+        # pills read as slightly lifted out of the bar rather than boxed in by a
+        # border. `accordion` would collapse a group down to one icon until it
+        # is hovered; left off, since these three are all things to be read at a
+        # glance, not opened.
+        capsule_group = [
+          {
+            id = "g1";
+            members = ["cpu" "ram"];
+            enabled = true;
+            fill = "surface_variant";
+            opacity = 1.0;
+            padding = 6.0;
+            accordion = false;
+            accordion_direction = "end";
+          }
+          {
+            id = "g2";
+            members = ["wallpaper" "wallhaven"];
+            enabled = true;
+            fill = "surface_variant";
+            opacity = 1.0;
+            padding = 6.0;
+            accordion = false;
+            accordion_direction = "end";
+          }
+          {
+            id = "g3";
+            members = ["volume" "brightness"];
+            enabled = true;
+            fill = "surface_variant";
+            opacity = 1.0;
+            padding = 6.0;
+            accordion = false;
+            accordion_direction = "end";
+          }
+        ];
+
         # Widget lists are replaced wholesale, not merged, so all three sections
         # are restated in full even where they match the default. Note the
         # underscores: some ids are hyphenated and some are not.
         #
-        # Left: the focused window's title, then the machine's vitals. Grouping
-        # them here rather than at the right end keeps the whole "what is running
-        # and what is it costing" story in one place, next to the workspaces.
+        # Left: the two wallpaper controls (g2) and the machine's vitals (g1)
+        # sit between the workspaces and the window title, so the whole "what is
+        # running and what is it costing" story stays in one place. active_window
+        # goes last because it is the one item with no fixed width — anything
+        # after it would shift around as the title changes.
         start = [
           "launcher"
-          "wallpaper"
           "workspaces"
+          "group:g2"
+          "group:g1"
           "active_window"
-          "cpu"
-          "ram"
         ];
 
         center = ["clock"];
@@ -106,16 +200,19 @@
         # `clipboard` is deliberately absent: the icon is gone from the bar, but
         # nothing about the clipboard itself changes — the history service is
         # separate, and Mod+V still opens the panel (see modules/home/niri.nix).
+        #
+        # `notes` and `wallhaven` come from plugins (see `plugins.enabled`
+        # below); their widget definitions are in `widget` further down.
         end = [
           "media"
           "tray"
-          "notifications"
           "keyboard_layout"
+          "notes"
           "network"
           "bluetooth"
-          "volume"
-          "brightness"
+          "group:g3"
           "battery"
+          "notifications"
           "control-center"
           "session"
         ];
@@ -148,6 +245,22 @@
         # binary carries the string and `noctalia config validate` accepts it
         # without the "unknown setting" warning it raises for typos.
         media.hide_when_no_media = true;
+
+        # Percentage rather than the default "ram_used", which prints a figure
+        # in GiB. Next to cpu_usage in the same capsule, two percentages line up
+        # and stay the same width; a GiB figure does neither.
+        ram.stat = "ram_pct";
+
+        # Plugin-provided widgets. The `type` is "<plugin>:<widget>", and the
+        # plugin has to be in `plugins.enabled` below or the id resolves to
+        # nothing and the slot in the bar is silently dropped.
+        notes.type = "noctalia/notes:notes";
+        wallhaven = {
+          type = "noctalia/wallhaven:wallhaven";
+          # Default glyph is the generic plugin puzzle piece, which says nothing
+          # about what the button does.
+          glyph = "photo-search";
+        };
       };
 
       # Noctalia's backdrop is a tinted layer-shell surface meant to dim the
@@ -198,6 +311,156 @@
       idle.behavior.lock = {
         enabled = true;
         timeout = 600;
+      };
+
+      # Plugins. This list only says which ones are *on* — the code itself is
+      # git-cloned by Noctalia's own plugin manager into
+      # ~/.local/state/noctalia/plugins, outside Nix's hands. So on a fresh
+      # machine the shell has to fetch them once before `notes` and `wallhaven`
+      # resolve to anything; bitwarden has no bar widget and shows up as a
+      # launcher provider instead.
+      plugins.enabled = [
+        "noctalia/wallhaven"
+        "noctalia/notes"
+        "noctalia/bitwarden"
+      ];
+
+      # Panels (launcher, clipboard, control center, session, wallpaper, polkit).
+      #
+      # "attached" hangs the panel off the bar under the widget that opened it,
+      # instead of "floating" it in the middle of the screen; open_near_click
+      # then puts it under the pointer rather than centred on the bar item, which
+      # matters on a 2560px-wide monitor where the two can be half a screen
+      # apart. `floating_layer = "top"` drops the still-floating panels out of
+      # the overlay layer so they sit under, not over, the lock screen.
+      shell.panel = {
+        launcher_placement = "attached";
+        clipboard_placement = "attached";
+        polkit_placement = "attached";
+        floating_layer = "top";
+        open_near_click_launcher = true;
+        open_near_click_clipboard = true;
+        open_near_click_control_center = true;
+        open_near_click_session = true;
+        open_near_click_wallpaper = true;
+      };
+
+      # Show the public IP in the network panel. Costs a lookup against an
+      # external service whenever the panel opens — which is also what makes it
+      # a usable "is the VPN actually up?" check (see ~/vpn-check.sh).
+      shell.external_ip_enabled = true;
+
+      # In niri's overview, typing goes straight into Noctalia's launcher rather
+      # than being swallowed. Makes the overview a search-and-launch surface
+      # instead of a picker you have to leave before launching anything.
+      shell.niri_overview_type_to_launch_enabled = true;
+
+      # UI sounds (volume steps, notifications, screenshots). Off by default.
+      audio.enable_sounds = true;
+
+      # Notification history keeps 4 hours. The default is 0 — unlimited, not
+      # none — so the list grew forever.
+      notification.history_retention_hours = 4;
+
+      # Drop the events card from the calendar tab: there is no calendar source
+      # wired up, so it only ever rendered an empty box.
+      control_center.calendar.show_events_card = false;
+
+      # Hot corner: throw the pointer into the top-left to open the launcher.
+      #
+      # NOTE this is dormant — `hot_corners.enabled` is still at its default
+      # `false`, so no corner is armed and the action never fires. Set
+      # `hot_corners.enabled = true;` to turn the feature on.
+      hot_corners.top_left.action = "launcher";
+
+      # Dock. Also dormant: `dock.enabled` is at its default `false`, so nothing
+      # is drawn and neither key has any effect yet. Kept because they are the
+      # two that decide whether a dock is bearable — never steal screen space
+      # from windows, and only hide when a window would actually overlap it.
+      dock = {
+        reserve_space = false;
+        smart_auto_hide = true;
+      };
+
+      # Lock screen widgets. Positions are in output-local pixels and are only
+      # arrivable at by dragging the box around in the editor, which is why the
+      # numbers look arbitrary: cx/cy are the box centre, and placement_width /
+      # placement_height record the logical size of the output it was placed on
+      # (2133x1200 for DP-2 — that is 2560x1440 at the 1.2 scale set in
+      # ./niri.nix — and 1920x1080 for HDMI-A-2). Noctalia rescales the position
+      # if the output later differs from what was recorded.
+      #
+      # NOTE dormant as well: `lockscreen_widgets.enabled` is at its default
+      # `false`, so the lock screen still draws its own built-in login box and
+      # these two are not used. Set `lockscreen_widgets.enabled = true;` to
+      # switch over to the placed ones.
+      #
+      # One box per output, because a login box only appears on the screen it
+      # was placed on — without the HDMI-A-2 copy, waking on that monitor would
+      # give a lock screen with nowhere to type.
+      lockscreen_widgets = {
+        widget_order = [
+          "lockscreen-login-box@DP-2"
+          "lockscreen-login-box@HDMI-A-2"
+        ];
+
+        widget = {
+          "lockscreen-login-box@DP-2" = {
+            type = "login_box";
+            output = "DP-2";
+            cx = 1067.0;
+            cy = 1081.0;
+            box_width = 720.0;
+            box_height = 196.0;
+            placement_width = 2133.0;
+            placement_height = 1200.0;
+            rotation = 0.0;
+            settings = {
+              layout = "regular";
+              background_color = "surface_variant";
+              background_opacity = 0.88;
+              background_radius = 12.0;
+              input_opacity = 1.0;
+              input_radius = 6.0;
+              center_password_text = false;
+              show_caps_lock = true;
+              show_keyboard_layout = true;
+              show_login_button = true;
+              show_media = true;
+              show_session_buttons = true;
+              show_unlock_hint = true;
+              show_weather = true;
+            };
+          };
+
+          "lockscreen-login-box@HDMI-A-2" = {
+            type = "login_box";
+            output = "HDMI-A-2";
+            cx = 960.0;
+            cy = 961.0;
+            box_width = 720.0;
+            box_height = 196.0;
+            placement_width = 1920.0;
+            placement_height = 1080.0;
+            rotation = 0.0;
+            settings = {
+              layout = "regular";
+              background_color = "surface_variant";
+              background_opacity = 0.88;
+              background_radius = 12.0;
+              input_opacity = 1.0;
+              input_radius = 6.0;
+              center_password_text = false;
+              show_caps_lock = true;
+              show_keyboard_layout = true;
+              show_login_button = true;
+              show_media = true;
+              show_session_buttons = true;
+              show_unlock_hint = true;
+              show_weather = true;
+            };
+          };
+        };
       };
 
       # Deliberately not set:
