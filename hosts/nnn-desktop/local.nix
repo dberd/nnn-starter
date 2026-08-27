@@ -4,21 +4,7 @@
 # personal fork, and the values below have to be reproducible on the second host
 # too. Real secrets (VPN credentials, ssh keys, tokens) never live here — see
 # modules/nixos/vpn.nix for how those are handled.
-{
-  # Login user and machine identity.
-  username = "sundial";
-  hostName = "nnn-desktop";
-  # Shown as the account description — the greeter and Noctalia display it.
-  fullName = "sundial";
-
-  # Locale / location.
-  timeZone = "Europe/Moscow";
-
-  # Git identity (modules/home/git.nix). The work identity is applied per
-  # directory via includeIf, see that module.
-  gitUserName = "dberd";
-  gitUserEmail = "dberd2001@gmail.com";
-
+let
   # Outputs for niri (modules/home/niri.nix). Values taken from `niri msg
   # outputs`: the two panels have different resolutions AND different scales,
   # so a single scalar monitorScale (as upstream has) can't express this.
@@ -54,5 +40,46 @@
         y = 0;
       };
     };
+  };
+
+  # Which of those panels is the biggest, by pixel count. Games belong there,
+  # and two modules need to agree on the answer — modules/nixos/gaming.nix
+  # points gamescope at it, modules/home/niri.nix pins gamescope's window to
+  # it — so it is derived from `monitors` above rather than spelled out a
+  # second time. Swap a monitor and both follow.
+  names = builtins.attrNames monitors;
+  pixels = name: monitors.${name}.mode.width * monitors.${name}.mode.height;
+  largest =
+    builtins.foldl'
+    (
+      best: name:
+        if pixels name > pixels best
+        then name
+        else best
+    )
+    (builtins.head names)
+    names;
+in {
+  # Login user and machine identity.
+  username = "sundial";
+  hostName = "nnn-desktop";
+  # Shown as the account description — the greeter and Noctalia display it.
+  fullName = "sundial";
+
+  # Locale / location.
+  timeZone = "Europe/Moscow";
+
+  # Git identity (modules/home/git.nix). The work identity is applied per
+  # directory via includeIf, see that module.
+  gitUserName = "dberd";
+  gitUserEmail = "dberd2001@gmail.com";
+
+  inherit monitors;
+
+  # The output games are sent to, plus the mode it runs at — see the `largest`
+  # binding above for how it is picked.
+  gameOutput = {
+    name = largest;
+    inherit (monitors.${largest}) mode;
   };
 }
