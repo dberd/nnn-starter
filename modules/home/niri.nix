@@ -227,7 +227,7 @@
       # app-id read off `niri msg windows` on a live window: "org.gnome.Nautilus",
       # dots escaped because matches are regexes, as the note above explains.
       #
-      # 760 tall goes to every window under the app-id: it suits a Properties
+      # 710 tall goes to every window under the app-id: it suits a Properties
       # sheet, which is a long list of rows, as well as it does the file manager.
       # Width is only a floor here — the rule below widens the browser window to
       # 1200, and the two are merged in order.
@@ -240,7 +240,7 @@
       {
         matches = [{app-id = "^org\\.gnome\\.Nautilus$";}];
         open-floating = true;
-        default-window-height.fixed = 760;
+        default-window-height.fixed = 710;
         default-column-width.fixed = 480;
       }
 
@@ -249,7 +249,7 @@
       # — and they carry no title of their own, so GTK names the window after
       # the app id, which is what the exclude keys off. They keep the width they
       # ask for (480 for that Properties sheet); only the file manager itself is
-      # widened, and 1200x760 fits inside both outputs (1920x1080 and the
+      # widened, and 1200x710 fits inside both outputs (1920x1080 and the
       # 2133x1200 logical Philips) with room left over for the bar.
       #
       # Right-click Properties and Compress… inside a window are unaffected
