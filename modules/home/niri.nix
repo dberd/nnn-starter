@@ -64,6 +64,12 @@
     layout = {
       gaps = 12;
       center-focused-column = "never";
+
+      # …except when the workspace holds exactly one column, which then sits in
+      # the middle instead of hugging the left edge. Only fires while there is a
+      # single column: open a second one and both snap back to the normal
+      # scrolling behaviour above.
+      always-center-single-column = true;
       preset-column-widths = [
         {proportion = 1.0 / 3.0;}
         {proportion = 1.0 / 2.0;}
@@ -142,9 +148,12 @@
     # is only for the cases it gets wrong. Deliberately still short — workspace
     # pinning for messengers and music is yours to fill in.
     window-rules = [
-      # Steam's main window is worth the whole screen; everything else it opens
+      # Steam's main window gets the full column width; everything else it opens
       # (Friends, the overlay, download toasts) is a small companion window that
-      # should not take a column in the scrolling layout.
+      # should not take a column in the scrolling layout. Note open-maximized is
+      # niri's maximize-column, not fullscreen — the bar and the gaps stay.
+      # Games do not come through here at all: they arrive as gamescope windows,
+      # see the rule below.
       {
         matches = [
           {
@@ -152,12 +161,48 @@
             title = "^Steam$";
           }
         ];
-        open-fullscreen = true;
+        open-maximized = true;
       }
       {
         matches = [{app-id = "^steam$";}];
         excludes = [{title = "^Steam$";}];
         open-floating = true;
+      }
+
+      # gamescope's nested window. Verified with `niri msg windows` against a
+      # live nested instance: both the app-id and the title are literally
+      # "gamescope", whatever is running inside it.
+      #
+      # modules/nixos/gaming.nix already passes -f, so gamescope asks for
+      # fullscreen itself; what niri adds here is WHICH output it lands on.
+      # Without open-on-output the window opens wherever focus happened to be
+      # when Steam launched the title, which is usually the small panel.
+      {
+        matches = [{app-id = "^gamescope$";}];
+        open-on-output = local.gameOutput.name;
+        open-fullscreen = true;
+        open-focused = true;
+      }
+
+      # Browser, editor and DB client are all "one big document" apps: they want
+      # the whole column rather than the half-width default. Same open-maximized
+      # as Steam above — the column, not fullscreen.
+      #
+      # These app-ids are read off `niri msg windows` on live windows, NOT off
+      # the .desktop StartupWMClass, which disagrees: VSCodium's says "vscodium"
+      # while the window reports "codium". DBeaver arrives through XWayland and
+      # keeps its WM_CLASS casing, hence the capital B.
+      {
+        matches = [
+          {app-id = "^zen-beta$";}
+          {app-id = "^codium$";}
+          {app-id = "^DBeaver$";}
+        ];
+        # Zen's Picture-in-Picture matches the app-id above but is handled by
+        # the rule right below. Without this exclude it would come out both
+        # maximized and floating.
+        excludes = [{title = "^Picture-in-Picture$";}];
+        open-maximized = true;
       }
 
       # Picture-in-Picture is a video overlay, not a document: floating, and
@@ -171,6 +216,25 @@
         ];
         open-floating = true;
         default-column-width.fixed = 480;
+      }
+
+      # Nautilus is a file manager, not a document: like Finder it should be a
+      # window you summon on top of whatever you were doing and dismiss again,
+      # not a column that shoves the scrolling layout aside every time Mod+E
+      # gets pressed. Mod+Shift+T tiles it back when a session really wants it
+      # side by side.
+      #
+      # app-id read off `niri msg windows` on a live window: "org.gnome.Nautilus",
+      # dots escaped because matches are regexes, as the note above explains. The
+      # same id also covers Preferences and Properties, which niri already floats
+      # on its own as dialogs — for those the rule only changes the size.
+      # 1200x760 fits inside both outputs (1920x1080 and the 2133x1200 logical
+      # Philips) with room left over for the bar.
+      {
+        matches = [{app-id = "^org\\.gnome\\.Nautilus$";}];
+        open-floating = true;
+        default-column-width.fixed = 1200;
+        default-window-height.fixed = 760;
       }
     ];
 
