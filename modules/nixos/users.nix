@@ -25,6 +25,14 @@
   # also generates fish completions from the man pages of installed packages.
   programs.fish.enable = true;
 
+  # Stylix ships its fish target as BOTH a home-manager and a NixOS module, and
+  # each writes its own copy. Turning off only the home-manager one (see
+  # modules/home/fish.nix, which explains why we want it off at all) leaves this
+  # one writing `source …/base16-stylix.fish` into /etc/fish/config.fish — which
+  # every interactive fish reads BEFORE the user config, so the colours came
+  # back regardless. Both halves have to go.
+  stylix.targets.fish.enable = false;
+
   # Passwordless sudo for the wheel group keeps `nixos-rebuild` snappy. Drop the
   # `wheelNeedsPassword = false` line if you'd rather be prompted.
   security.sudo.wheelNeedsPassword = false;
