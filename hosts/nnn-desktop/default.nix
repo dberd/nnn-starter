@@ -2,11 +2,12 @@
 # two external monitors, UEFI, NixOS on the Kingston NVMe (btrfs subvolumes, see
 # disko.nix). The ADATA still holds the previous system and stays bootable as a
 # fallback — see docs/migrate-to-nvme.md and the limine entries in
-# modules/nixos/boot.nix.
+# ./boot-entries.nix.
 {local, ...}: {
   imports = [
     ./hardware-configuration.nix
     ./disko.nix
+    ./boot-entries.nix # limine entries for the ADATA and Windows — this box only
     ../../modules/nixos/hardware/amd-desktop.nix
     ../../modules/nixos/gaming.nix # desktop only; the laptop never imports this
   ];

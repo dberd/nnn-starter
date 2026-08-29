@@ -3,8 +3,64 @@
   pkgs,
   inputs,
   username,
+  local,
   ...
-}: {
+}: let
+  # One picture for every output. Pinning each monitor rather than relying on
+  # `wallpaper.default` matters because the palette is derived from the image:
+  # two different images would mean two screens disagreeing about the theme.
+  # This has to stay the same file as stylix.image in modules/nixos/stylix.nix.
+  wallpaperPath = "/home/${username}/Pictures/wallpapers/wallhaven-1pw769_2560x1440.png";
+
+  # Lock-screen login box, one per output — a box only appears on the screen it
+  # was placed on, so a host with two panels needs two or waking on the second
+  # one gives a lock screen with nowhere to type.
+  #
+  # Noctalia records positions in OUTPUT-LOCAL LOGICAL pixels, i.e. the mode
+  # divided by the scale, and rescales them if the output later differs from
+  # what was recorded. That makes them derivable instead of something to drag
+  # around in the editor, which is what they used to be: the two hand-placed
+  # boxes sat at 90.1% and 89.0% of their panel's height — a difference nobody
+  # chose — so both are now simply centred horizontally and put at 90%. On the
+  # 1080p panel that moves the box 11 logical pixels down from where it was.
+  logical = m: {
+    w = m.mode.width / m.scale;
+    h = m.mode.height / m.scale;
+  };
+
+  loginBox = name: let
+    l = logical local.monitors.${name};
+  in {
+    type = "login_box";
+    output = name;
+    cx = l.w / 2;
+    cy = l.h * 0.9;
+    box_width = 720.0;
+    box_height = 196.0;
+    placement_width = l.w;
+    placement_height = l.h;
+    rotation = 0.0;
+    settings = {
+      layout = "regular";
+      background_color = "surface_variant";
+      background_opacity = 0.88;
+      background_radius = 12.0;
+      input_opacity = 1.0;
+      input_radius = 6.0;
+      center_password_text = false;
+      show_caps_lock = true;
+      show_keyboard_layout = true;
+      show_login_button = true;
+      show_media = true;
+      show_session_buttons = true;
+      show_unlock_hint = true;
+      show_weather = true;
+    };
+  };
+
+  outputs = builtins.attrNames local.monitors;
+  boxId = name: "lockscreen-login-box@${name}";
+in {
   # The Noctalia desktop shell: bar, launcher, notifications, control center,
   # lock screen and wallpaper, all in one.
   programs.noctalia = {
@@ -28,20 +84,16 @@
       # since the lock screen draws the same wallpaper, why that was black too.
       wallpaper = {
         directory = "/home/${username}/Pictures/wallpapers";
-        default.path = "/home/${username}/Pictures/wallpapers/wallhaven-1pw769_2560x1440.png";
+        default.path = wallpaperPath;
 
         # Cross-fade the wallpaper in at shell start instead of having it snap
         # onto the black background.
         transition_on_startup = true;
 
-        # `default` is only the fallback for an output with no entry here. Both
-        # monitors are pinned, because the palette is derived from the image and
-        # two different images would mean the two screens disagree about the
-        # theme.
-        monitors = {
-          "DP-2".path = "/home/${username}/Pictures/wallpapers/wallhaven-1pw769_2560x1440.png";
-          "HDMI-A-2".path = "/home/${username}/Pictures/wallpapers/wallhaven-1pw769_2560x1440.png";
-        };
+        # `default` is only the fallback for an output with no entry here, so
+        # every output this host declares gets pinned explicitly — see the
+        # `wallpaperPath` binding at the top for why they all get the same file.
+        monitors = lib.genAttrs outputs (_: {path = wallpaperPath;});
 
         # The star in the wallpaper panel. Each entry remembers the theme that
         # was in use when it was starred, so picking it again restores the whole
@@ -382,85 +434,17 @@
         smart_auto_hide = true;
       };
 
-      # Lock screen widgets. Positions are in output-local pixels and are only
-      # arrivable at by dragging the box around in the editor, which is why the
-      # numbers look arbitrary: cx/cy are the box centre, and placement_width /
-      # placement_height record the logical size of the output it was placed on
-      # (2133x1200 for DP-2 — that is 2560x1440 at the 1.2 scale set in
-      # ./niri.nix — and 1920x1080 for HDMI-A-2). Noctalia rescales the position
-      # if the output later differs from what was recorded.
+      # Lock screen widgets, one login box per output. Both the set of boxes and
+      # their placement are derived from local.monitors — see the `loginBox`
+      # binding at the top of this file for the arithmetic and for why it is
+      # arithmetic rather than numbers dragged around in the editor.
       #
-      # NOTE dormant as well: `lockscreen_widgets.enabled` is at its default
-      # `false`, so the lock screen still draws its own built-in login box and
-      # these two are not used. Set `lockscreen_widgets.enabled = true;` to
-      # switch over to the placed ones.
-      #
-      # One box per output, because a login box only appears on the screen it
-      # was placed on — without the HDMI-A-2 copy, waking on that monitor would
-      # give a lock screen with nowhere to type.
+      # NOTE dormant: `lockscreen_widgets.enabled` is at its default `false`, so
+      # the lock screen still draws its own built-in login box and these are not
+      # used. Set `lockscreen_widgets.enabled = true;` to switch over.
       lockscreen_widgets = {
-        widget_order = [
-          "lockscreen-login-box@DP-2"
-          "lockscreen-login-box@HDMI-A-2"
-        ];
-
-        widget = {
-          "lockscreen-login-box@DP-2" = {
-            type = "login_box";
-            output = "DP-2";
-            cx = 1067.0;
-            cy = 1081.0;
-            box_width = 720.0;
-            box_height = 196.0;
-            placement_width = 2133.0;
-            placement_height = 1200.0;
-            rotation = 0.0;
-            settings = {
-              layout = "regular";
-              background_color = "surface_variant";
-              background_opacity = 0.88;
-              background_radius = 12.0;
-              input_opacity = 1.0;
-              input_radius = 6.0;
-              center_password_text = false;
-              show_caps_lock = true;
-              show_keyboard_layout = true;
-              show_login_button = true;
-              show_media = true;
-              show_session_buttons = true;
-              show_unlock_hint = true;
-              show_weather = true;
-            };
-          };
-
-          "lockscreen-login-box@HDMI-A-2" = {
-            type = "login_box";
-            output = "HDMI-A-2";
-            cx = 960.0;
-            cy = 961.0;
-            box_width = 720.0;
-            box_height = 196.0;
-            placement_width = 1920.0;
-            placement_height = 1080.0;
-            rotation = 0.0;
-            settings = {
-              layout = "regular";
-              background_color = "surface_variant";
-              background_opacity = 0.88;
-              background_radius = 12.0;
-              input_opacity = 1.0;
-              input_radius = 6.0;
-              center_password_text = false;
-              show_caps_lock = true;
-              show_keyboard_layout = true;
-              show_login_button = true;
-              show_media = true;
-              show_session_buttons = true;
-              show_unlock_hint = true;
-              show_weather = true;
-            };
-          };
-        };
+        widget_order = map boxId outputs;
+        widget = lib.listToAttrs (map (name: lib.nameValuePair (boxId name) (loginBox name)) outputs);
       };
 
       # Deliberately not set:

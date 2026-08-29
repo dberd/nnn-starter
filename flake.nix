@@ -90,7 +90,36 @@
     # so adding a machine is: create hosts/<name>/{default,local}.nix +
     # hardware-configuration.nix, then one line in nixosConfigurations below.
     mkHost = hostName: let
-      local = import ./hosts/${hostName}/local.nix;
+      raw = import ./hosts/${hostName}/local.nix;
+
+      # Which panel is the biggest, by pixel count. Two things need to agree on
+      # the answer — modules/nixos/gaming.nix points gamescope at it, and the
+      # gamescope window rule in modules/home/niri.nix pins its window there —
+      # so it is derived here, once, from the `monitors` every host declares.
+      # Doing it in mkHost rather than in each local.nix means a single-output
+      # laptop gets a correct (if uninteresting) answer for free.
+      names = builtins.attrNames raw.monitors;
+      pixels = name: raw.monitors.${name}.mode.width * raw.monitors.${name}.mode.height;
+      largest =
+        builtins.foldl'
+        (
+          best: name:
+            if pixels name > pixels best
+            then name
+            else best
+        )
+        (builtins.head names)
+        names;
+
+      local =
+        raw
+        // {
+          gameOutput = {
+            name = largest;
+            inherit (raw.monitors.${largest}) mode;
+          };
+        };
+
       inherit (local) username;
     in
       nixpkgs.lib.nixosSystem {
