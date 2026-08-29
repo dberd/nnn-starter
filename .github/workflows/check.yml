@@ -35,12 +35,17 @@ jobs:
       - name: Dead code (deadnix)
         run: nix run nixpkgs#deadnix -- --fail .
 
-  # Realise the NixOS system. niri and noctalia come prebuilt from their cachix
-  # caches (configured below + in modules/nixos/default.nix), so this no longer
-  # compiles them from source. Runs on main / manual dispatch.
+  # Realise the NixOS system closure, once per host. niri and noctalia come
+  # prebuilt from their cachix caches (configured below + in
+  # modules/nixos/default.nix), so this no longer compiles them from source.
+  # Runs on main / manual dispatch.
   build:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        host: [nnn-desktop, nnn-t480s]
     steps:
       - uses: actions/checkout@v4
       - uses: DeterminateSystems/nix-installer-action@main
@@ -49,7 +54,7 @@ jobs:
           extra-conf: |
             extra-substituters = https://niri.cachix.org https://noctalia.cachix.org
             extra-trusted-public-keys = niri.cachix.org-1:Wv0OmO7PsuocRKzfDoJ3mulSl7Z6oezYhGhR+3W2964= noctalia.cachix.org-1:pCOR47nnMEo5thcxNDtzWpOxNFQsBRglJzxWPp3dkU4=
-      - name: Build the NixOS system closure
+      - name: Build the NixOS system closure (${{ matrix.host }})
         run: |
           nix build --print-build-logs \
-            '.#nixosConfigurations.nnn.config.system.build.toplevel'
+            '.#nixosConfigurations.${{ matrix.host }}.config.system.build.toplevel'

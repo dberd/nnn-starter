@@ -1,6 +1,11 @@
-{pkgs, ...}: {
+{
+  lib,
+  pkgs,
+  ...
+}: {
   # Sensible hardware defaults for a modern Intel laptop (tested on a ThinkPad
-  # X1 Carbon Gen 13 / Lunar Lake). All generic enough to keep in the starter.
+  # X1 Carbon Gen 13 / Lunar Lake, in use on a T480s). All generic enough to keep
+  # in the starter — nothing here names a specific model.
 
   # GPU video acceleration. hardware.graphics is enabled in desktop.nix; this
   # adds the VA-API / QSV runtimes so browsers and players decode/encode video
@@ -22,7 +27,9 @@
   #   ignoreCpuidCheck: newer Intel CPUs (e.g. Lunar Lake, family 6 model 0xbd)
   #   aren't in thermald's built-in model table yet, so it would otherwise exit
   #   with "Unsupported cpu model" at boot. Forces it to run with generic config.
-  services.thermald.enable = true;
+  # mkDefault: a host whose model ships its own MSR-writing daemon (nnn-t480s
+  # runs services.throttled) turns this off rather than having the two fight.
+  services.thermald.enable = lib.mkDefault true;
   services.thermald.ignoreCpuidCheck = true;
 
   # Firmware updates via LVFS: `fwupdmgr refresh && fwupdmgr update` pulls
@@ -34,9 +41,35 @@
   services.hardware.bolt.enable = true;
 
   # Compressed RAM swap. Faster than the disk swap partition and saves NVMe
-  # wear; with 32 GB RAM the default (50% of RAM) is plenty of headroom.
-  # (Note: too small to hibernate 32 GB — that still needs a disk swap ≥ RAM.)
+  # wear; the default (50% of RAM) is plenty of headroom.
+  # It does NOT replace the disk swap: zram takes the higher priority and absorbs
+  # the ordinary paging, while hibernation needs a real block device and uses the
+  # one disko lays down (see hosts/<name>/disko.nix).
   zramSwap.enable = true;
+
+  # Intel microcode. nixos-hardware's common/cpu/intel sets this too, but only
+  # as an mkDefault keyed on enableRedistributableFirmware — stated here so the
+  # module stands on its own for a host that does not import nixos-hardware.
+  hardware.cpu.intel.updateMicrocode = true;
+  hardware.enableRedistributableFirmware = true;
+
+  # Closing the lid suspends, and if it stays closed long enough the machine
+  # writes RAM to disk and powers off properly instead of draining the battery
+  # in S3 for two days. This needs a swap device at least as large as RAM
+  # (hosts/<name>/disko.nix) — with only zram below, hibernation silently fails
+  # and the lid switch degrades to a plain suspend.
+  services.logind.lidSwitch = "suspend-then-hibernate";
+  services.logind.lidSwitchExternalPower = "suspend";
+  systemd.sleep.settings.Sleep.HibernateDelaySec = "30min";
+
+  # Out of battery should also mean hibernate, not a hard cut. upower is enabled
+  # in ../desktop.nix; this is only about what it does at the bottom.
+  services.upower = {
+    criticalPowerAction = "Hibernate";
+    percentageAction = 3;
+    percentageCritical = 5;
+    percentageLow = 15;
+  };
 
   # Fingerprint reader (enroll with `fprintd-enroll`). Wires fingerprint auth
   # into PAM for login/sudo via the libfprint stack.

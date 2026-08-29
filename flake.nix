@@ -40,6 +40,15 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # Per-model hardware quirks, maintained upstream. Used only by nnn-t480s:
+    # it brings the Intel microcode/i915 defaults, fstrim, the trackpoint, TLP,
+    # and services.throttled — the fix for the T480-era power-limit throttling
+    # that firmware asks for and the kernel otherwise obeys forever.
+    #
+    # Deliberately no `follows`: it is a tree of NixOS modules with no packages
+    # of its own, so it never pulls a second nixpkgs into the closure.
+    nixos-hardware.url = "github:NixOS/nixos-hardware";
+
     # System-wide base16 theming.
     stylix = {
       url = "github:nix-community/stylix";
@@ -180,18 +189,21 @@
       };
 
     # Helper so `nix fmt` / `nix develop` work from macOS or Linux.
+    #
+    # No x86_64-darwin: nixpkgs 26.11 dropped it, so `nix flake check
+    # --all-systems` fails on formatter.x86_64-darwin alone. Intel Macs need a
+    # nixpkgs pinned to 26.05 or older, which is not what this flake tracks.
     devSystems = [
       "x86_64-linux"
       "aarch64-linux"
       "aarch64-darwin"
-      "x86_64-darwin"
     ];
     forAllSystems = nixpkgs.lib.genAttrs devSystems;
     pkgsFor = system: nixpkgs.legacyPackages.${system};
   in {
     nixosConfigurations = {
       nnn-desktop = mkHost "nnn-desktop";
-      # nnn-t480s = mkHost "nnn-t480s";   # ThinkPad T480s — see hosts/README
+      nnn-t480s = mkHost "nnn-t480s";
     };
 
     # `nix fmt`
