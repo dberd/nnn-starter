@@ -1,13 +1,27 @@
-# Recipient for everything under secrets/. The matching private key lives at
-# /var/lib/sops-nix/key.txt on the host — that file is the one thing that cannot
-# live in this repo, and the one thing you must carry to a new machine.
+# Recipients for everything under secrets/. Each host has its own key, and the
+# matching private half lives at /var/lib/sops-nix/key.txt on that machine —
+# that file is the one thing that cannot be in this repo, and the one thing you
+# must carry to a new machine.
 #
-# Add a second key here (and run `sops updatekeys`) when the ThinkPad joins.
+# Per host rather than one shared key on purpose: a laptop is the thing that
+# gets lost or stolen, and a key of its own can be dropped from this file and
+# `sops updatekeys` re-run, which locks that machine out of every future
+# version of the secrets without touching the desktop.
+#
+# Adding a host: generate a key with `age-keygen -o <file>` (age is in
+# `nix develop`), add its PUBLIC half below and to the key_groups list, then run
+#
+#   sops updatekeys secrets/secrets.yaml
+#
+# which re-encrypts to the new recipient set. That needs an existing private key
+# to read the file with, so it is run from a machine already on the list.
 keys:
   - &nnn-desktop age13per274d9pyukzpjcdw5nlk6cpqkc5vqvenrvhygy5ms3eeq9grq7rve8l
+  - &nnn-t480s age1wyk0t53qntcxey6tkvu6ef5gz4ce4qajxvuc6c4q8s69rysprqvqrut3ge
 
 creation_rules:
   - path_regex: secrets/[^/]+\.(yaml|json|env|ini|conf)$
     key_groups:
       - age:
           - *nnn-desktop
+          - *nnn-t480s
