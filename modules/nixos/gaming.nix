@@ -3,6 +3,7 @@
 {
   local,
   pkgs,
+  username,
   ...
 }: let
   # The biggest panel and its mode, derived in hosts/<host>/local.nix from the
@@ -23,18 +24,25 @@
   #
   # into a title's Properties -> Launch Options; Steam has no global field for
   # this, so it is once per game. Everything that differs per machine is baked
-  # in here, so the string never has to change.
+  # in here, so the string never has to change. Per-title extras go before the
+  # `--`, e.g. `gamescope-run --force-grab-cursor -F fsr -- %command%`.
   #
-  # Kept deliberately plain: per-title extras go after the wrapper name, e.g.
-  # `gamescope-run --force-grab-cursor -- %command%` for a shooter that lets the
-  # pointer escape, or `-w 1920 -h 1080 -F fsr` to render below native and
-  # upscale. --force-grab-cursor is NOT on by default because it pins the mouse
-  # to relative mode, which is wrong for anything with a visible cursor.
+  # The store path is deliberate, and is NOT interchangeable with a bare
+  # `gamescope` off PATH. A bare name resolves to /run/wrappers/bin/gamescope,
+  # the cap_sys_nice wrapper that programs.gamescope.capSysNice installs below —
+  # and Steam runs games inside a bubblewrap sandbox with no_new_privs set,
+  # which is exactly the condition under which a file-capability binary refuses
+  # to start:
   #
-  # `gamescope` is left unqualified on purpose: programs.gamescope.capSysNice
-  # below installs a cap_sys_nice copy at /run/wrappers/bin, which comes first
-  # on PATH and is the only one that can honour --rt. Hardcoding
-  # ${pkgs.gamescope} would silently pick the capability-less one.
+  #   failed to inherit capabilities: Operation not permitted
+  #
+  # The wrapper never gets as far as launching gamescope, Steam sees the process
+  # exit within a second, and the game silently does not start. Verified both
+  # ways under `steam-run`: the wrapper fails, this path works.
+  #
+  # --rt is gone for the same reason: realtime scheduling is what wanted the
+  # capability, and the capability cannot survive the sandbox. It stays on the
+  # gamescopeSession args below, which run outside any sandbox and can use it.
   gamescope-run = pkgs.writeShellScriptBin "gamescope-run" ''
     # Split our own argv at the first `--`: what comes before it is extra
     # gamescope flags for this one title, what comes after is the game.
@@ -45,13 +53,33 @@
     done
     if [ "$#" -gt 0 ]; then shift; fi
 
-    exec gamescope \
+    # Steam launches everything with LD_PRELOAD pointing at both copies of its
+    # overlay, ubuntu12_{32,64}/gameoverlayrenderer.so. Inherited by the GAME
+    # that is fine and wanted — it is what Shift+Tab, Steam screenshots and
+    # Steam Input hang off. Inherited by gamescope ITSELF it is the documented
+    # cause of stutter that creeps in 25-40 minutes into a session and never
+    # lets go (ArchWiki "Gamescope", Troubleshooting; the upstream Arch
+    # gamescope-run strips it, this wrapper used not to). So gamescope and the
+    # mangoapp it spawns start without it, and the original value is handed
+    # back across the `--`.
+    #
+    # gamemoderun then does LD_PRELOAD="libgamemodeauto.so.0''${LD_PRELOAD:+:$LD_PRELOAD}"
+    # on top, so the game ends up with exactly what a non-gamescope launch gives it.
+    steam_preload="''${LD_PRELOAD-}"
+    unset LD_PRELOAD
+
+    if [ -n "$steam_preload" ]; then
+      set -- env "LD_PRELOAD=$steam_preload" gamemoderun "$@"
+    else
+      set -- gamemoderun "$@"
+    fi
+
+    exec ${pkgs.gamescope}/bin/gamescope \
       -W ${width} -H ${height} -r ${refresh} \
       -f \
-      --rt \
       --mangoapp \
       "''${gs_extra[@]}" \
-      -- gamemoderun "$@"
+      -- "$@"
   '';
 in {
   programs.steam = {
@@ -106,6 +134,23 @@ in {
   # every title through `gamemoderun`, so this is on for anything launched that
   # way without a second launch-option to remember.
   programs.gamemode.enable = true;
+
+  # programs.gamemode creates the `gamemode` group but puts nobody in it, and
+  # gamemode.rules from the package grants the privileged helpers only to
+  # `subject.isInGroup("gamemode")`. Without this membership every launch logs
+  #
+  #   pkexec: Error executing command as another user: Not authorized
+  #     [COMMAND=.../libexec/cpugovctl set performance]
+  #   gamemoded: ERROR: Failed to update cpu governor policy
+  #   gamemoded: ERROR: Failed to update split_lock_mitigate
+  #
+  # and gamemoderun is decorative: the governor stays powersave and
+  # kernel.split_lock_mitigate stays 1, which stalls any thread doing a
+  # split-lock atomic — common in Unity titles under Proton.
+  #
+  # Set here rather than in ../users.nix because the group only exists on hosts
+  # that import this module; the ThinkPad does not.
+  users.users.${username}.extraGroups = ["gamemode"];
 
   # Legcord 1.2.4 registered its `legcord://` scheme with `corsEnabled: false`,
   # which blocked shelter's fetch of legcord://plugins/*/plugin.json from the

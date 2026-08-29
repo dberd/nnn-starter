@@ -58,4 +58,23 @@
       ];
     };
   };
+
+  # Make ghostty the terminal GLib reaches for when an app asks for one, i.e.
+  # any .desktop with Terminal=true and Nautilus' "Run as Program" on scripts.
+  # GLib does not read a setting for this — it walks a hardcoded list of binary
+  # names (xdg-terminal-exec, kgx, gnome-terminal, mate-terminal,
+  # xfce4-terminal, io.elementary.terminal, tilix, konsole, xterm and a few
+  # relics) and takes the first one on PATH. ghostty is not on that list and
+  # none of the others are installed, so every such launch failed outright with
+  # "Unable to find terminal required for application".
+  #
+  # xdg-terminal-exec is first in that list and is the spec-blessed indirection:
+  # it resolves the terminal from xdg-terminals.list, which we point at ghostty.
+  # Installing it fixes the whole class of launches rather than this one script.
+  # Unrelated to nautilus-open-any-terminal in modules/home/apps.nix — that
+  # extension has its own dconf setting and does not go through GLib.
+  xdg.terminal-exec = {
+    enable = true;
+    settings.default = ["com.mitchellh.ghostty.desktop"];
+  };
 }

@@ -46,12 +46,10 @@
     # ── Documents / notes / media ───────────────────────────────────────────
     onlyoffice-desktopeditors
     # No dedicated notes app: the vaults are plain markdown in git
-    # (github.com/dberd/{EFKO,LongBoiPersonal}), edited in VSCodium. That is why
-    # TriliumNext was dropped — it keeps notes in its own database rather than in
-    # files, so nothing outside Trilium could read them.
+    # (github.com/dberd/{EFKO,LongBoiPersonal}), edited in VSCodium
     pinta # simple raster image editor
     spotify # official client (unfree)
-    spotify-player # TUI client; needs a Premium account to stream
+    cliamp # TUI client for music
 
     # ── Editors / transfer / misc ───────────────────────────────────────────
     vscodium # default GUI editor, see modules/home/mime.nix

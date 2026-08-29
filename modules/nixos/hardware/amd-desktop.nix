@@ -38,7 +38,43 @@
   # Firmware updates via LVFS.
   services.fwupd.enable = true;
 
-  # Compressed RAM swap. With 16 GiB the default (50% of RAM) is a good trade;
-  # note this is too small to hibernate, which would need a disk swap >= RAM.
-  zramSwap.enable = true;
+  # Compressed RAM swap, sized at 100% of RAM. That figure is a cap, not a
+  # reservation: zstd gets ~3.5:1 on Electron and browser heaps, so a full
+  # 16 GiB zram costs roughly 4-5 GiB of real RAM. Still far too small to
+  # hibernate, which would need a disk swap >= RAM.
+  zramSwap = {
+    enable = true;
+    memoryPercent = 100;
+  };
+
+  # Without the two killers below this box livelocks instead of OOM-killing:
+  # zram is the only swap, so once it fills there is no non-RAM tier left and
+  # the kernel spins in reclaim indefinitely. That is how it froze hard on
+  # 2026-08-27 — the journal stops mid-sentence and dmesg has no OOM entry at
+  # all, because nothing was ever killed.
+  #
+  # earlyoom polls MemAvailable and SIGTERMs the largest process before that
+  # point. It fires only when the memory AND swap thresholds are both crossed,
+  # so both swap thresholds are pinned at 100 to keep that half permanently
+  # true: zram lives in RAM and is therefore already accounted for in
+  # MemAvailable, and a large zram would otherwise keep "free swap" high enough
+  # to veto every kill. The SIGKILL threshold has to be set explicitly — left
+  # unset it defaults to half of the SIGTERM one, i.e. 50%, which would let a
+  # half-empty zram block the hard kill in exactly the situation this guards.
+  services.earlyoom = {
+    enable = true;
+    freeMemThreshold = 8; # SIGTERM below ~1.2 GiB available
+    freeMemKillThreshold = 4; # SIGKILL below ~620 MiB
+    freeSwapThreshold = 100;
+    freeSwapKillThreshold = 100;
+  };
+
+  # systemd-oomd already runs, but monitors nothing: slices ship with
+  # ManagedOOMMemoryPressure=auto, which means "ignore this cgroup". Switch the
+  # user slices to kill for a PSI-based second line of defence under earlyoom.
+  systemd.oomd.enableUserSlices = true;
+
+  # Begin reclaim earlier. The default 10 (0.1% of RAM) is far too late to react
+  # at desktop allocation rates, leaving no slack to swap into before a stall.
+  boot.kernel.sysctl."vm.watermark_scale_factor" = 200;
 }
