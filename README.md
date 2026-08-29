@@ -42,14 +42,12 @@ git clone https://github.com/<you>/nnn-starter ~/nnn-starter
 cd ~/nnn-starter
 
 # 2. Generate real hardware config for THIS machine.
-sudo nixos-generate-config --show-hardware-config > hosts/nnn/hardware-configuration.nix
+sudo nixos-generate-config --show-hardware-config > hosts/<host>/hardware-configuration.nix
 
-# 3. Put your identity in local.nix (see Placeholders below), then keep your
-#    edits out of git history:
-git update-index --skip-worktree local.nix
+# 3. Put your identity in hosts/<host>/local.nix (see Placeholders below).
 
-# 4. Build & switch.
-sudo nixos-rebuild switch --flake .#nnn
+# 4. Build & switch. This fork has two hosts, so the target is named:
+sudo nixos-rebuild switch --flake .#nnn-desktop     # or .#nnn-t480s
 ```
 
 After the first build, rebuild with `nh os switch` (aliased to `rebuild`) or
@@ -57,31 +55,36 @@ After the first build, rebuild with `nh os switch` (aliased to `rebuild`) or
 
 ## Placeholders to edit
 
-Your personal settings live in one place — [`local.nix`](local.nix). It's
-tracked with neutral defaults but marked `skip-worktree` (step 3) so your real
-values never get staged or committed.
+Everything machine-local lives in one file per host —
+`hosts/<host>/local.nix`. Upstream keeps it at the repo root and marks it
+`skip-worktree`; this fork tracks it instead, because with more than one machine
+the values have to be reproducible on each of them.
 
 | What | Where |
 |------|-------|
-| **Username, hostname, full name** | [`local.nix`](local.nix) |
-| **Git identity** (name, email) | [`local.nix`](local.nix) |
-| **Timezone** | [`local.nix`](local.nix) |
-| **Monitor scale** | [`local.nix`](local.nix) |
-| **Hardware** | `hosts/nnn/hardware-configuration.nix` (generated, step 2 above) |
-| **Locale / keyboard layout** | [`hosts/nnn/default.nix`](hosts/nnn/default.nix) |
-| **Monitor name / position** | `outputs` in [`modules/home/niri.nix`](modules/home/niri.nix) |
+| **Username, hostname, full name** | `hosts/<host>/local.nix` |
+| **Git identity** (name, email) | `hosts/<host>/local.nix` |
+| **Timezone** | `hosts/<host>/local.nix` |
+| **Monitors** — name, mode, scale, position | `monitors` in `hosts/<host>/local.nix` |
+| **Disk layout** | `hosts/<host>/disko.nix` |
+| **Hardware** | `hosts/<host>/hardware-configuration.nix` (generated, step 2 above) |
+| **Locale / keyboard layout** | [`hosts/common/default.nix`](hosts/common/default.nix) |
 
-> Editing the defaults themselves (e.g. to change the placeholders this repo
-> ships) needs `git update-index --no-skip-worktree local.nix` first.
+`monitors` is the single source of truth for outputs: niri takes its `outputs`
+from it, Noctalia derives its per-monitor wallpapers and lock-screen boxes from
+it, and `flake.nix` picks the largest panel out of it for gamescope. Add or swap
+a monitor there and the rest follows.
+
+Real secrets never go in these files — see `modules/nixos/secrets.nix`.
 
 ## Layout
 
 ```
-flake.nix              # inputs + the single `nixosConfigurations.nnn`
-local.nix              # your machine-local identity (skip-worktree)
-hosts/nnn/             # host: hardware + locale/timezone
+flake.nix              # inputs + mkHost -> nixosConfigurations.{nnn-desktop,nnn-t480s}
+hosts/common/          # shared: locale, keyboard layout, stateVersion
+hosts/<host>/          # per machine: local.nix, hardware-configuration.nix, disko.nix
 modules/nixos/         # system: boot, audio, niri, noctalia, stylix, users…
-modules/home/          # user: zsh, ghostty, neovim, niri keybinds, cli tools…
+modules/home/          # user: fish, ghostty, neovim, niri keybinds, cli tools…
 themes/kanagawa.yaml   # vendored base16 palette (Stylix source of truth)
 ```
 
@@ -139,14 +142,14 @@ nix flake check                                              # evaluate everythi
 nix flake show                                               # list outputs
 nix fmt                                                      # format (alejandra)
 nix run nixpkgs#statix -- check . && nix run nixpkgs#deadnix # lint
-nix eval .#nixosConfigurations.nnn.config.system.build.toplevel.drvPath
+nix eval .#nixosConfigurations.nnn-desktop.config.system.build.toplevel.drvPath
 ```
 
 On a NixOS box (or with a remote/`linux-builder`) you can smoke-test in a VM:
 
 ```sh
-nixos-rebuild build-vm --flake .#nnn
-./result/bin/run-nnn-vm
+nixos-rebuild build-vm --flake .#nnn-desktop
+./result/bin/run-nnn-desktop-vm
 ```
 
 ### CI
@@ -157,7 +160,7 @@ and PR:
 - **eval** — `nix flake check --no-build` evaluates the whole config (the fast,
   reliable signal: catches option typos and niri schema errors).
 - **lint** — `alejandra --check`, `statix`, `deadnix`.
-- **build** — realises the full system closure; runs on `main` / manual
+- **build** — realises the full system closure, once per host (matrix); runs on `main` / manual
   dispatch. niri and noctalia are pulled prebuilt from their cachix caches
   (`niri.cachix.org`, `noctalia.cachix.org`), so it finishes in minutes instead
   of compiling C++/Rust from source. Delete the job if you don't want it.
@@ -171,10 +174,17 @@ and PR:
 Upstream lists these as not included. This fork has since done all three:
 
 - Secrets: [sops-nix](https://github.com/Mic92/sops-nix) — `modules/nixos/secrets.nix`,
-  with the age key at `/var/lib/sops-nix/key.txt` as the one thing that cannot live here.
-- Declarative disks: [disko](https://github.com/nix-community/disko) —
-  `hosts/nnn-desktop/disko.nix`, which partitioned the current NVMe.
-- Multi-host: `hosts/` is one folder per machine; `hosts/nnn-t480s/` is the next one.
+  with a per-host age key at `/var/lib/sops-nix/key.txt` as the one thing that cannot
+  live here. One key per machine, so a lost laptop can be dropped from `.sops.yaml`
+  and `sops updatekeys` re-run without touching the other host.
+- Declarative disks: [disko](https://github.com/nix-community/disko) — one
+  `hosts/*/disko.nix` per machine. The desktop is plain btrfs; the laptop is LUKS →
+  LVM → btrfs with a swap volume sized for hibernation.
+- Multi-host: `hosts/` is one folder per machine, and there are two —
+  **`nnn-desktop`** (AMD, two monitors, games) and **`nnn-t480s`** (ThinkPad T480s,
+  encrypted, no games). Build either with `--flake .#<host>`; adding a third is a
+  `hosts/<name>/` directory and one line in `flake.nix`. Installing the laptop is
+  written up in [docs/install-t480s.md](docs/install-t480s.md).
 
 ### Binary caches (no source builds)
 

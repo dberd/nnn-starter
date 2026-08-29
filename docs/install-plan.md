@@ -1,7 +1,8 @@
 # nnn-desktop: установка и устройство конфигурации
 
 Форк [floatdrop/nnn-starter](https://github.com/floatdrop/nnn-starter) (NixOS + Niri + Noctalia),
-адаптированный под AMD-десктоп и подготовленный к добавлению второго хоста — ThinkPad T480s.
+адаптированный под AMD-десктоп; второй хост — ThinkPad T480s — описан в
+[install-t480s.md](install-t480s.md).
 
 Документ описывает состояние на момент первой установки: какие решения приняты, почему, и что
 делать при повторении на другой машине.
@@ -15,13 +16,17 @@
 
 ## 1. Железо и разметка
 
-| | nnn-desktop | nnn-t480s (планируется) |
+| | nnn-desktop | nnn-t480s |
 |---|---|---|
 | CPU | AMD Ryzen 7 5700X | Intel Kaby Lake R |
 | GPU | Radeon RX 7700/7800 XT (Navi 32), RADV | Intel iGPU, iHD |
-| RAM | 16 GiB | — |
+| RAM | 16 GiB | 8/16/24 GiB — уточняется на месте, от этого размер swap |
 | Мониторы | `HDMI-A-2` 1920x1080@60 @1.0 + `DP-2` 2560x1440@75 @**1.2** | `eDP-1` |
+| Диск | btrfs без шифрования | **LUKS → LVM → btrfs + swap**, гибернация |
+| Прочие ОС | Windows 10 на втором диске | **нет**, NixOS единственная |
 | Игры | да | **нет** |
+
+Установка ноутбука описана отдельно: [install-t480s.md](install-t480s.md).
 
 Диск `/dev/sda` (ADATA SU650, 447G), UEFI:
 
@@ -142,14 +147,17 @@ path: uuid(7bffd8d6-d1f6-4e83-a6f6-c9035367f86d):/EFI/limine/BOOTX64.EFI
 ```
 flake.nix                       mkHost -> nixosConfigurations.{nnn-desktop,nnn-t480s}
 hosts/common/                   локаль, раскладка us,ru, stateVersion
-hosts/nnn-desktop/              hostName, TZ, опции btrfs, hardware-configuration.nix, local.nix
+hosts/nnn-desktop/              hostName, TZ, hardware-configuration.nix, local.nix,
+                                disko.nix, boot-entries.nix (ADATA + Windows)
+hosts/nnn-t480s/                то же, но disko.nix с LUKS+LVM и без boot-entries:
+                                других ОС на диске нет
 modules/nixos/
   hardware/amd-desktop.nix      amdgpu, radeonsi, микрокод AMD
-  hardware/intel-laptop.nix     бывший hardware.nix апстрима — готов для T480s
+  hardware/intel-laptop.nix     iHD, thermald, fwupd, крышка → suspend-then-hibernate
   gaming.nix                    Steam/gamescope/lutris/heroic — импортируется ТОЛЬКО десктопом
   vpn.nix                       throne + snx-rs + split-routing
   dev.nix                       nix-ld
-  boot.nix                      limine + чейнлоад ADATA/Windows
+  boot.nix                      только limine + plymouth; записи чужих ОС — в hosts/
 modules/home/
   fish.nix                      замена zsh.nix
   dev.nix                       docker-clients, dbeaver, node, dotnet SDK
@@ -158,8 +166,9 @@ modules/home/
 ```
 
 Хост выбирает ровно один модуль из `hardware/`; всё машинно-зависимое — в `hosts/<host>/local.nix`.
-Добавить T480s = создать `hosts/nnn-t480s/{default,local}.nix` + hardware-config и одну строку в
-`flake.nix`; `gaming.nix` он просто не импортирует.
+Добавить хост = создать `hosts/<имя>/{default,local}.nix` + hardware-config и одну строку в
+`flake.nix`. `gaming.nix` импортирует только тот, кому он нужен. `gameOutput` выводится
+в `mkHost` из `local.monitors`, поэтому в `local.nix` его писать не надо.
 
 ### Принятые решения
 
@@ -217,9 +226,11 @@ Nautilus**, а не GTK-диалог.
 ## 6. Что осталось
 
 - Стереть ADATA, когда система на NVMe себя покажет, и убрать за ней хвосты:
-  запись `/NixOS (ADATA, old disk)` из `modules/nixos/boot.nix` и `Limine (ADATA)`
+  запись `/NixOS (ADATA, old disk)` из `hosts/nnn-desktop/boot-entries.nix` и `Limine (ADATA)`
   из NVRAM (`efibootmgr -b 0003 -B`). Диск после этого — под библиотеку Steam.
-- `hosts/nnn-t480s/` по схеме из раздела 4.
+- Поставить nnn-t480s: конфигурация готова и собирается, осталась физическая установка —
+  [install-t480s.md](install-t480s.md). Два значения в `hosts/nnn-t480s/` помечены
+  `PLACEHOLDER` и заполняются на месте: `by-id` диска и размер swap-тома.
 
 Закрыто по ходу дела:
 
@@ -228,6 +239,9 @@ Nautilus**, а не GTK-диалог.
   целиком (migrate-to-nvme.md §0).
 - ~~`sops-nix` для `snx-rs.conf`~~ — `modules/nixos/secrets.nix`, три секрета.
 - ~~`disko`~~ — `hosts/nnn-desktop/disko.nix`, им же и размечался NVMe.
+- ~~Развязать общие модули от железа десктопа~~ — записи limine, `gameOutput` и имена
+  мониторов в Noctalia больше не зашиты в `modules/`.
+- ~~Отдельный age-ключ для второго хоста~~ — `.sops.yaml` знает обоих получателей.
 - ~~Проверить `default_entry`~~ — да, limine считает группу `/+NixOS default profile`
   отдельным пунктом: модуль ставит `default_entry: 2` (или `3`, если у поколения есть
   специализации), и это указывает на самое свежее поколение. Плюс теперь включён
