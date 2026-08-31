@@ -25,11 +25,9 @@
   # eDP-1, which keeps the gamescope window rule in modules/home/niri.nix valid
   # even though modules/nixos/gaming.nix is never imported here.
   #
-  # PLACEHOLDER until the machine is in hand. The T480s shipped with several
-  # panels (1920x1080 IPS is the common one, 2560x1440 on some SKUs), so read
-  # the real values off `niri msg outputs` after the first boot and correct
-  # them here — a wrong mode makes niri fall back to the panel's preferred one
-  # silently, and a wrong scale is just the wrong text size.
+  # Confirmed against the real panel with `niri msg outputs`: Chimei Innolux
+  # 0x14C9, 1920x1080@60.008 (preferred), scale 1. This SKU shipped as the
+  # common 1920x1080 IPS panel, not the 2560x1440 variant some T480s carry.
   monitors."eDP-1" = {
     focus-at-startup = true;
     mode = {

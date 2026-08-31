@@ -1,4 +1,4 @@
-{...}: {
+{lib, ...}: {
   # Colour comes from Noctalia, not Stylix: it templates ghostty from the live
   # palette (see theme.templates in modules/home/noctalia.nix), so the terminal
   # follows a theme switch at runtime. Stylix writes into the store at build
@@ -8,6 +8,29 @@
   # the file is a store symlink it cannot edit — so the line is set here and the
   # script finds it already correct.
   stylix.targets.ghostty.enable = false;
+
+  # `theme = noctalia` below points at a file only the *running* Noctalia
+  # writes (~/.config/ghostty/themes/noctalia). On a brand-new machine that
+  # file doesn't exist yet, and home-manager validates the ghostty config on
+  # the "onFilesChange" activation step — which fails, and a failed step skips
+  # every activation step queued after it. On the T480s that silently ate the
+  # niri config symlink too, and the compositor refused to start with no
+  # obvious cause.
+  #
+  # Seeding a placeholder before that validation runs is enough; Noctalia
+  # overwrites it with the live palette once it's up. Colours here come from
+  # Stylix's base00/base05 (/etc/stylix/palette.json) rather than anything
+  # made up, so the seed is at least correct until Noctalia replaces it.
+  home.activation.ghosttyThemeSeed = lib.hm.dag.entryBefore ["onFilesChange"] ''
+    themeFile="$HOME/.config/ghostty/themes/noctalia"
+    if [ ! -e "$themeFile" ]; then
+      run mkdir -p "$(dirname "$themeFile")"
+      run tee "$themeFile" > /dev/null <<'EOF'
+    background = 151d28
+    foreground = d3e6f4
+    EOF
+    fi
+  '';
 
   programs.ghostty = {
     enable = true;
