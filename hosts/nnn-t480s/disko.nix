@@ -33,14 +33,12 @@
 {...}: {
   disko.devices.disk.main = {
     type = "disk";
-    # PLACEHOLDER — replace with this laptop's own id before running disko.
-    # Read it off the machine with `ls -l /dev/disk/by-id/`; see
-    # docs/install-t480s.md step 1.
+    # This machine's only NVMe drive.
     #
     # Addressed by stable id rather than /dev/sda or /dev/nvme0n1 on purpose:
     # kernel names depend on probe order, and a live USB stick in the port
     # during the install is enough to shift them.
-    device = "/dev/disk/by-id/REPLACE-ME-nvme-…";
+    device = "/dev/disk/by-id/nvme-eui.001b444a44c22b33";
     content = {
       type = "gpt";
       partitions = {
@@ -104,11 +102,8 @@
   disko.devices.lvm_vg.t480s = {
     type = "lvm_vg";
     lvs = {
-      # PLACEHOLDER — must be >= RAM or hibernation cannot write the image, and
-      # `systemctl hibernate` fails at the point you most wanted it to work.
-      # The T480s has 8 GiB soldered plus one SODIMM slot, so this is 8, 16 or
-      # 24 GiB of RAM; size this at RAM + 2 GiB and confirm with `free -g`
-      # during the install.
+      # 16 GiB RAM (confirmed with `free -g`), sized at RAM + 2 GiB. Hibernation
+      # has been verified to work at this size.
       swap = {
         size = "18G";
         content = {
@@ -116,11 +111,14 @@
           # Emits boot.resumeDevice = /dev/t480s/swap. Without it the machine
           # suspends fine and then boots from scratch instead of resuming.
           resumeDevice = true;
-          # Lower priority than zram (modules/nixos/hardware/intel-laptop.nix),
-          # which the kernel gives a high priority by default — ordinary paging
-          # goes to compressed RAM, and this volume is here for the hibernation
-          # image and for the overflow zram cannot hold.
-          priority = 100;
+          # In Linux, a HIGHER swap priority is preferred first. zram
+          # (modules/nixos/hardware/intel-laptop.nix) gets priority 5 from the
+          # kernel by default, so this volume has to sit below that — otherwise
+          # it steals ordinary paging that should go to compressed RAM instead,
+          # and only sees the hibernation image and whatever overflow zram
+          # can't hold. Confirmed with `swapon --show` on the running machine:
+          # this used to be 100 and zram's 5 was losing.
+          priority = 1;
           discardPolicy = "pages";
         };
       };
