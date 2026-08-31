@@ -33,14 +33,12 @@
 {...}: {
   disko.devices.disk.main = {
     type = "disk";
-    # PLACEHOLDER — replace with this laptop's own id before running disko.
-    # Read it off the machine with `ls -l /dev/disk/by-id/`; see
-    # docs/install-t480s.md step 1.
+    # This laptop's own NVMe, read off the machine during the install.
     #
     # Addressed by stable id rather than /dev/sda or /dev/nvme0n1 on purpose:
     # kernel names depend on probe order, and a live USB stick in the port
     # during the install is enough to shift them.
-    device = "/dev/disk/by-id/REPLACE-ME-nvme-…";
+    device = "/dev/disk/by-id/nvme-eui.001b444a44c22b33";
     content = {
       type = "gpt";
       partitions = {
@@ -62,6 +60,15 @@
           content = {
             type = "filesystem";
             format = "vfat";
+            # Force FAT32. mkfs.vfat picks the FAT width from the partition size
+            # and has been seen to lay a filesystem smaller than the partition
+            # it was given (see the ESP comment in hosts/nnn-desktop/disko.nix).
+            # The T480s' ESP came out corrupt on its very first boot — fsck.vfat
+            # reported clusters out of range — and had to be reformatted and the
+            # bootloader reinstalled. The cause was never proven, so this is a
+            # cheap hedge rather than a known fix: an ESP should be FAT32 in any
+            # case, and saying so removes one variable.
+            extraArgs = ["-F" "32"];
             mountpoint = "/boot";
             mountOptions = ["fmask=0022" "dmask=0022"];
           };
@@ -104,11 +111,9 @@
   disko.devices.lvm_vg.t480s = {
     type = "lvm_vg";
     lvs = {
-      # PLACEHOLDER — must be >= RAM or hibernation cannot write the image, and
-      # `systemctl hibernate` fails at the point you most wanted it to work.
-      # The T480s has 8 GiB soldered plus one SODIMM slot, so this is 8, 16 or
-      # 24 GiB of RAM; size this at RAM + 2 GiB and confirm with `free -g`
-      # during the install.
+      # 16 GiB of RAM on this machine, so 18G: the hibernation image has to fit,
+      # and swap smaller than RAM makes `systemctl hibernate` fail at exactly
+      # the moment it was wanted. Confirmed on the machine with `free -g`.
       swap = {
         size = "18G";
         content = {
@@ -116,11 +121,15 @@
           # Emits boot.resumeDevice = /dev/t480s/swap. Without it the machine
           # suspends fine and then boots from scratch instead of resuming.
           resumeDevice = true;
-          # Lower priority than zram (modules/nixos/hardware/intel-laptop.nix),
-          # which the kernel gives a high priority by default — ordinary paging
-          # goes to compressed RAM, and this volume is here for the hibernation
-          # image and for the overflow zram cannot hold.
-          priority = 100;
+          # BELOW zram, which modules/nixos/hardware/intel-laptop.nix enables and
+          # NixOS gives priority 5. In Linux a HIGHER number means "use this one
+          # first", so the 100 that used to sit here did the opposite of what its
+          # comment claimed: ordinary paging went to the SSD while the compressed
+          # RAM that exists to absorb it sat idle. `swapon --show` on the running
+          # laptop is what caught it. Hibernation is unaffected either way — it
+          # writes to boot.resumeDevice, not to whatever has the highest priority
+          # — but the SSD wear was real.
+          priority = 1;
           discardPolicy = "pages";
         };
       };

@@ -44,6 +44,15 @@
           content = {
             type = "filesystem";
             format = "vfat";
+            # Force FAT32. mkfs.vfat picks the FAT width from the partition size
+            # and has been seen to lay a filesystem smaller than the partition
+            # it was given (see the ESP comment in hosts/nnn-desktop/disko.nix).
+            # The T480s' ESP came out corrupt on its very first boot — fsck.vfat
+            # reported clusters out of range — and had to be reformatted and the
+            # bootloader reinstalled. The cause was never proven, so this is a
+            # cheap hedge rather than a known fix: an ESP should be FAT32 in any
+            # case, and saying so removes one variable.
+            extraArgs = ["-F" "32"];
             mountpoint = "/boot";
             mountOptions = ["fmask=0022" "dmask=0022"];
           };

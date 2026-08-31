@@ -1,15 +1,10 @@
-# HAND-WRITTEN PLACEHOLDER — unlike the desktop's copy, this was NOT produced by
-# nixos-generate-config, because the machine was not available when the host was
-# added. It carries the modules a T480s needs to reach its root filesystem, which
-# is enough for the configuration to evaluate and build on another machine.
-#
-# REPLACE IT with the real thing as the first step of the install (see
-# docs/install-t480s.md): boot the ISO on the laptop and run
-#
-#   nixos-generate-config --show-hardware-config > hardware-configuration.nix
-#
-# then drop the generated `fileSystems` — those come from ./disko.nix — and keep
-# everything else it found.
+# Written by hand, not by nixos-generate-config — the machine was not available
+# when this host was added. It was checked against the real thing during the
+# install: `nixos-generate-config --show-hardware-config` on the T480s found
+# xhci_pci, nvme, usb_storage and sd_mod, all of which are below, plus the same
+# kvm-intel and hostPlatform. The extra modules here (ahci, usbhid,
+# rtsx_pci_sdmmc) are a superset and cost nothing in the initrd, so the file was
+# kept as written rather than replaced with the generated one.
 {
   config,
   lib,
