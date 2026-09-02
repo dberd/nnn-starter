@@ -43,6 +43,14 @@ in {
     fnm
 
     dotnet
+
+    # `go` alone is just the compiler — VSCodium's Go extension also wants
+    # gopls on PATH for language features and delve for debugging, neither of
+    # which it can install itself into a read-only nix profile.
+    go
+    gopls
+    delve
+    gotools # goimports, among others
   ];
 
   # `dotnet tool install -g dotnet-ef` writes into ~/.dotnet/tools, which is
