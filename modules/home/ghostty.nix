@@ -1,4 +1,41 @@
-{lib, ...}: {
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}: let
+  c = config.lib.stylix.colors.withHashtag;
+
+  # A stand-in for the theme file Noctalia writes at runtime, used only until it
+  # has run once. See the activation script at the bottom for why it exists —
+  # without it a fresh machine gets no desktop at all.
+  #
+  # The base16 -> ANSI mapping is the conventional one, so the seed and the file
+  # Noctalia later writes describe the same palette.
+  seedTheme = pkgs.writeText "ghostty-noctalia-seed" ''
+    palette = 0=${c.base00}
+    palette = 1=${c.base08}
+    palette = 2=${c.base0B}
+    palette = 3=${c.base0A}
+    palette = 4=${c.base0D}
+    palette = 5=${c.base0E}
+    palette = 6=${c.base0C}
+    palette = 7=${c.base05}
+    palette = 8=${c.base03}
+    palette = 9=${c.base08}
+    palette = 10=${c.base0B}
+    palette = 11=${c.base0A}
+    palette = 12=${c.base0D}
+    palette = 13=${c.base0E}
+    palette = 14=${c.base0C}
+    palette = 15=${c.base07}
+    background = ${c.base00}
+    foreground = ${c.base05}
+    cursor-color = ${c.base05}
+    selection-background = ${c.base02}
+    selection-foreground = ${c.base05}
+  '';
+in {
   # Colour comes from Noctalia, not Stylix: it templates ghostty from the live
   # palette (see theme.templates in modules/home/noctalia.nix), so the terminal
   # follows a theme switch at runtime. Stylix writes into the store at build
@@ -8,29 +45,6 @@
   # the file is a store symlink it cannot edit — so the line is set here and the
   # script finds it already correct.
   stylix.targets.ghostty.enable = false;
-
-  # `theme = noctalia` below points at a file only the *running* Noctalia
-  # writes (~/.config/ghostty/themes/noctalia). On a brand-new machine that
-  # file doesn't exist yet, and home-manager validates the ghostty config on
-  # the "onFilesChange" activation step — which fails, and a failed step skips
-  # every activation step queued after it. On the T480s that silently ate the
-  # niri config symlink too, and the compositor refused to start with no
-  # obvious cause.
-  #
-  # Seeding a placeholder before that validation runs is enough; Noctalia
-  # overwrites it with the live palette once it's up. Colours here come from
-  # Stylix's base00/base05 (/etc/stylix/palette.json) rather than anything
-  # made up, so the seed is at least correct until Noctalia replaces it.
-  home.activation.ghosttyThemeSeed = lib.hm.dag.entryBefore ["onFilesChange"] ''
-    themeFile="$HOME/.config/ghostty/themes/noctalia"
-    if [ ! -e "$themeFile" ]; then
-      run mkdir -p "$(dirname "$themeFile")"
-      run tee "$themeFile" > /dev/null <<'EOF'
-    background = 151d28
-    foreground = d3e6f4
-    EOF
-    fi
-  '';
 
   programs.ghostty = {
     enable = true;
@@ -100,4 +114,28 @@
     enable = true;
     settings.default = ["com.mitchellh.ghostty.desktop"];
   };
+
+  # Seed the theme file Noctalia owns, but only if it is not there yet.
+  #
+  # `theme = "noctalia"` above names ~/.config/ghostty/themes/noctalia, which
+  # the RUNNING shell writes from its live palette. On a machine that has never
+  # run Noctalia the file does not exist — and home-manager validates the
+  # ghostty config with `ghostty +validate-config` as an onChange hook, so
+  # activation fails at the onFilesChange step and every step after it is
+  # skipped. One of those steps writes ~/.config/niri/config.kdl, so niri comes
+  # up with no configuration and refuses to start.
+  #
+  # That is exactly how the T480s' first boot went: a missing terminal theme
+  # presented as a dead compositor, with nothing pointing at the real cause.
+  #
+  # The file has to be a real copy rather than home.file, which would make it a
+  # /nix/store symlink that Noctalia cannot overwrite. `-e` rather than `-f` so
+  # a symlink left by an older generation counts as present and is not clobbered.
+  home.activation.ghosttyThemeSeed = lib.hm.dag.entryBefore ["onFilesChange"] ''
+    theme="${config.xdg.configHome}/ghostty/themes/noctalia"
+    if [ ! -e "$theme" ]; then
+      $DRY_RUN_CMD mkdir -p "$(dirname "$theme")"
+      $DRY_RUN_CMD install -m644 ${seedTheme} "$theme"
+    fi
+  '';
 }

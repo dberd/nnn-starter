@@ -54,64 +54,109 @@ secrets/t480s-age-key.txt   приватный age-ключ ноутбука, 06
 
 Всё под root: `sudo -i`.
 
+> Раздел переписан **по факту установки 31.08.2026**. Первоначальная версия была
+> написана до неё и разошлась с реальностью в шести местах — все они ниже, с
+> объяснением, а не просто исправленной командой.
+
 ### 3.1 Смонтировать флешку
 
-Установочный ISO монтирует свой раздел сам; нужен третий.
+Три неочевидности подряд, и каждая стоила времени.
+
+**Метку `mount -L` не откроет.** Гибридный ISO — это валидная iso9660 **с нулевого
+сектора всего устройства**, и установщик монтирует `/dev/sdb` целиком. Диск оказывается
+занят монопольно, а `mount` требует именно монопольного доступа к разделу — отсюда
+`fsconfig failed: can't open blockdev`. Проверить можно так:
 
 ```sh
-mkdir -p /mnt/nnn
-mount -L NNN-STORE /mnt/nnn
+findmnt -o TARGET,SOURCE,FSTYPE | grep -iE "sdb|loop|iso"
 ```
 
-Монтирование по метке, а не по `/dev/sdX3`: имя устройства зависит от порядка опроса, и
-угадывать его не надо.
-
-### 3.2 Снять два значения
-
-Оба помечены в репозитории как `PLACEHOLDER`, и оба узнаются только здесь.
+Если источник — `/dev/sdb` без цифры, это он. Обход: подсунуть разделу loop-устройство,
+потому что loop открывает диск неэксклюзивно.
 
 ```sh
-# идентификатор диска — БЕЗ суффикса -partN
-ls -l /dev/disk/by-id/ | grep -v part
+losetup -f --show -o 1727004672 /dev/sdb
+```
 
-# объём памяти — от него размер swap-тома
+Смещение — начало третьего раздела (сектор 3373056 × 512). Границу сверху задавать не
+надо, раздел идёт до конца носителя. Команда напечатает имя вида `/dev/loop1` (`loop0`
+занят squashfs установщика).
+
+**Монтировать в `/run`, а не в `/mnt`.** `disko` монтирует новый корень в `/mnt` и
+накрыл бы собой точку `/mnt/nnn` ровно тогда, когда кеш нужен для `nixos-install`.
+
+**Тип указывать явно.** Без `-t ext4` mount перебирает типы и промахивается.
+
+```sh
+mkdir -p /run/nnn
+mount -t ext4 /dev/loop1 /run/nnn
+ls /run/nnn
+```
+
+Ожидается `lost+found  nixos-config  secrets  store`.
+
+> `mount --move` из `/mnt/nnn` в `/run/nnn` не работает: systemd делает `/` разделяемым,
+> а из-под shared-точки перенос запрещён. Отмонтировать и смонтировать заново.
+
+### 3.2 Снять три значения
+
+```sh
+ls /dev/disk/by-id/ | grep '^nvme-' | grep -v part
 free -g
+nixos-generate-config --show-hardware-config | grep -E "KernelModules|hostPlatform"
 ```
 
-### 3.3 Подставить их
+Первое — идентификатор диска (годится и `nvme-eui.…`), второе — объём RAM для размера
+swap, третье — сверка с написанным вручную `hardware-configuration.nix`.
 
-Правится копия **на флешке**, не где-то ещё:
+### 3.3 Настроить nix и подставить диск
 
 ```sh
-cd /mnt/nnn/nixos-config
-nano hosts/nnn-t480s/disko.nix
+mkdir -p /root/.config/nix
+printf 'experimental-features = nix-command flakes\nsubstituters = file:///run/nnn/store\nrequire-sigs = false\n' >/root/.config/nix/nix.conf
 ```
 
-Две строки:
-
-```nix
-device = "/dev/disk/by-id/nvme-<то, что показал ls>";
-...
-        size = "18G";     # >= RAM. 8 GiB RAM -> 10G, 16 -> 18G, 24 -> 26G
-```
-
-Swap **обязан** быть не меньше RAM, иначе образ гибернации некуда писать и
-`systemctl hibernate` откажет ровно тогда, когда он был нужен.
-
-### 3.4 Собрать скрипт разметки — офлайн
+Затем в копии репозитория **на флешке**:
 
 ```sh
-nix build --offline \
-  --option substituters file:///mnt/nnn/store \
-  --option require-sigs false \
-  --extra-experimental-features 'nix-command flakes' \
-  '/mnt/nnn/nixos-config#nixosConfigurations.nnn-t480s.config.system.build.diskoScript' \
-  -o /tmp/disko-t480s
+cd /run/nnn/nixos-config
+sed -i 's|REPLACE-ME[^"]*|<by-id диска>|' hosts/nnn-t480s/disko.nix
+grep -n 'device = ' hosts/nnn-t480s/disko.nix
 ```
 
-Собирается за секунды: сам скрипт — это подстановка двух строк, а все инструменты, которые
-он вызывает (`cryptsetup`, `lvm2`, `btrfs-progs`, `sgdisk`, `mkfs.vfat`), уже лежат в кеше
-на флешке.
+При необходимости там же поправить `size` swap-тома: он обязан быть **не меньше RAM**.
+
+### 3.4 Взять скрипт разметки из кеша
+
+**Офлайновое вычисление флейка не работает.** `nix flake archive` кладёт исходники входов
+в кеш, но nix при вычислении с этим кешем их не связывает и идёт за ними на GitHub —
+`nix build` падает с «failed to download». Сети на ноутбуке нет, и это тупик.
+
+Обход: не вычислять флейк вообще. И скрипт разметки, и система уже собраны на десктопе и
+лежат в кеше по конкретным путям, а разметка отличается от заготовки ровно строкой с
+диском.
+
+```sh
+nix-store -r /nix/store/c2l6scpj2x5386yr4q4mr82ya66sgclf-disko
+sed "s|REPLACE-ME-nvme-[^\"';# ]*|<by-id диска>|g" /nix/store/c2l6scpj2x5386yr4q4mr82ya66sgclf-disko > /tmp/disko-t480s
+chmod +x /tmp/disko-t480s
+```
+
+Эквивалентность подстановки честной пересборке **проверена побайтово**: скрипт, собранный
+с реальным диском, и заготовка с подставленным диском совпали (md5
+`967b1f72f95503c03e1b6f9452707aa5`). Класс `[^\"';# ]` обязателен — он не даёт замене
+съесть закрывающую кавычку и хвост комментария.
+
+Обязательная проверка перед запуском:
+
+```sh
+grep -c REPLACE-ME /tmp/disko-t480s          # 0
+grep -c '<by-id диска>' /tmp/disko-t480s     # 17
+bash -n /tmp/disko-t480s && echo SYNTAX-OK
+grep -o "for dev in [^;]*" /tmp/disko-t480s  # нацелен на нужный диск
+```
+
+Если первое число не ноль — замена не прошла, запускать нельзя.
 
 ### 3.5 Разметить
 
@@ -119,49 +164,80 @@ nix build --offline \
 /tmp/disko-t480s
 ```
 
-**Стирает диск целиком.** Спросит парольную фразу LUKS дважды — второй раз на
-подтверждение. Её придётся вводить при каждой загрузке, так что стоит подумать заранее и
-помнить: **в initrd раскладка всегда US**, что бы ни стояло в системе.
+**Стирает диск целиком.** Пароль LUKS спрашивается **один раз, без подтверждения** —
+опечатка даёт диск с неизвестным паролем. Раскладка US, и сейчас, и в initrd при каждой
+загрузке. Ввод невидимый.
 
-После него `lsblk` должен показать ESP, `cryptroot`, внутри — `t480s-swap` и `t480s-root`;
-`/mnt` уже смонтирован со всеми сабволюмами.
-
-### 3.6 Установить
+### 3.6 Проверить разметку и пароль
 
 ```sh
-nixos-install --root /mnt --flake /mnt/nnn/nixos-config#nnn-t480s --no-channel-copy \
-  --option substituters file:///mnt/nnn/store \
-  --option require-sigs false
+lsblk
+cryptsetup luksOpen --test-passphrase /dev/nvme0n1p2 && echo PAROL-OK
 ```
 
-Флаги делают ровно одно: заставляют nix брать пути с флешки, а не из сети. `require-sigs
-false` здесь безопасно — пути не подписаны потому, что собраны локально на десктопе, а не
-потому, что доверяем чужому кешу.
+Проверку пароля **не пропускать**: пока установка не началась, переразметить — минута.
 
-### 3.7 Ключ и пароль
+### 3.7 Установить
+
+По той же причине, что в 3.4, — не через `--flake`, а по готовому пути:
 
 ```sh
-install -Dm600 -o root -g root /mnt/nnn/secrets/t480s-age-key.txt /mnt/var/lib/sops-nix/key.txt
+nixos-install --root /mnt --no-channel-copy --system <путь к toplevel> --option substituters file:///run/nnn/store --option require-sigs false
+```
+
+`--system` ставит уже собранное замыкание: ничего не вычисляется и в сеть не идёт.
+Путь берётся с десктопа (`nix eval --raw '.#nixosConfigurations.nnn-t480s.config.system.build.toplevel'`)
+и записывается на флешку заранее.
+
+### 3.8 Ключ, репозиторий, пароль
+
+```sh
+install -Dm600 -o root -g root /run/nnn/secrets/t480s-age-key.txt /mnt/var/lib/sops-nix/key.txt
+mkdir -p /mnt/home/sundial && cp -r /run/nnn/nixos-config /mnt/home/sundial/
+chown -R 1000:100 /mnt/home/sundial/nixos-config
 nixos-enter --root /mnt -c '/nix/var/nix/profiles/system/sw/bin/passwd sundial'
 ```
 
-Порядок важен: без ключа первая загрузка не разложит секреты и `sops-nix.service` упадёт.
-Система при этом загрузится — но без ssh-ключей и конфига корпоративного VPN.
+Ключ обязательно до перезагрузки, иначе `sops-nix` упадёт и система приедет без
+ssh-ключей и конфига VPN.
 
-Затем `reboot` и вынуть флешку.
+### 3.9 Перед перезагрузкой — три проверки
+
+```sh
+ls /mnt/boot                                              # EFI и limine
+grep -o 'resume=[^ ]*' /mnt/boot/limine/limine.conf       # resume=/dev/t480s/swap
+ls -l /mnt/var/lib/sops-nix/key.txt                       # -rw------- root
+```
+
+Конфиг limine лежит в **`/boot/limine/limine.conf`**, не в `/boot/limine.conf`.
 
 ### Грабли
 
 Те же, что и на первой установке — подробности в [install-plan.md](install-plan.md) §2:
 
 - **`sudo` сбрасывает PATH** (`secure_path`), и `nixos-install` не находит `nix`. Отсюда
-  `sudo -i` в начале. Рецепт из мануала `sudo PATH="$PATH" …` во fish не работает: `$PATH`
-  там список и развернётся в несколько отдельных аргументов; нужен `sudo env PATH=…`.
+  `sudo -i` в начале. Рецепт `sudo PATH="$PATH" …` во fish не работает: `$PATH` там
+  список и развернётся в несколько аргументов; нужен `sudo env PATH=…`.
 - **Внутри `nixos-enter` PATH пуст** — `passwd` только по абсолютному пути.
-- **Перезагрузка посреди процесса всё размонтирует.** Лечится повторным монтированием в том
-  же порядке (`disko-mount`, затем флешка); ничего не теряется.
+- **Перезагрузка посреди процесса всё размонтирует.** Лечится повторным монтированием в
+  том же порядке; ничего не теряется.
 
----
+### Если ESP побился
+
+На первой же загрузке T480s `/boot` оказался повреждён: `fsck.vfat` сыпал «cluster out of
+range», systemd вечно ждал устройство (`A start job is running… no limit`). Систему это не
+тронуло — пострадал только загрузочный раздел. Восстановление с флешки:
+
+```sh
+mkfs.vfat -F 32 -n NIXBOOT /dev/nvme0n1p1
+# открыть LUKS, смонтировать корень и /boot, затем:
+nixos-enter --root /mnt -c 'NIXOS_INSTALL_BOOTLOADER=1 /nix/var/nix/profiles/system/bin/switch-to-configuration boot'
+```
+
+**Причина не установлена.** Подозрение на `mkfs.vfat`, который выбирает ширину FAT по
+размеру раздела и, как уже отмечено в `hosts/nnn-desktop/disko.nix`, умеет положить
+файловую систему меньше выданного раздела. С тех пор в обоих `disko.nix` стоит явный
+`extraArgs = ["-F" "32"]` — это дешёвая страховка, а не доказанное исправление.
 
 ## 4. После первой загрузки
 

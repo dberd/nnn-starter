@@ -33,7 +33,7 @@
 {...}: {
   disko.devices.disk.main = {
     type = "disk";
-    # This machine's only NVMe drive.
+    # This laptop's own NVMe, read off the machine during the install.
     #
     # Addressed by stable id rather than /dev/sda or /dev/nvme0n1 on purpose:
     # kernel names depend on probe order, and a live USB stick in the port
@@ -60,6 +60,15 @@
           content = {
             type = "filesystem";
             format = "vfat";
+            # Force FAT32. mkfs.vfat picks the FAT width from the partition size
+            # and has been seen to lay a filesystem smaller than the partition
+            # it was given (see the ESP comment in hosts/nnn-desktop/disko.nix).
+            # The T480s' ESP came out corrupt on its very first boot — fsck.vfat
+            # reported clusters out of range — and had to be reformatted and the
+            # bootloader reinstalled. The cause was never proven, so this is a
+            # cheap hedge rather than a known fix: an ESP should be FAT32 in any
+            # case, and saying so removes one variable.
+            extraArgs = ["-F" "32"];
             mountpoint = "/boot";
             mountOptions = ["fmask=0022" "dmask=0022"];
           };
@@ -102,8 +111,10 @@
   disko.devices.lvm_vg.t480s = {
     type = "lvm_vg";
     lvs = {
-      # 16 GiB RAM (confirmed with `free -g`), sized at RAM + 2 GiB. Hibernation
-      # has been verified to work at this size.
+      # 16 GiB of RAM on this machine (confirmed with `free -g`), so 18G: the
+      # hibernation image has to fit, and swap smaller than RAM makes
+      # `systemctl hibernate` fail at exactly the moment it was wanted.
+      # Hibernation has been verified to work at this size.
       swap = {
         size = "18G";
         content = {
@@ -111,13 +122,14 @@
           # Emits boot.resumeDevice = /dev/t480s/swap. Without it the machine
           # suspends fine and then boots from scratch instead of resuming.
           resumeDevice = true;
-          # In Linux, a HIGHER swap priority is preferred first. zram
-          # (modules/nixos/hardware/intel-laptop.nix) gets priority 5 from the
-          # kernel by default, so this volume has to sit below that — otherwise
-          # it steals ordinary paging that should go to compressed RAM instead,
-          # and only sees the hibernation image and whatever overflow zram
-          # can't hold. Confirmed with `swapon --show` on the running machine:
-          # this used to be 100 and zram's 5 was losing.
+          # BELOW zram, which modules/nixos/hardware/intel-laptop.nix enables and
+          # NixOS gives priority 5. In Linux a HIGHER number means "use this one
+          # first", so the 100 that used to sit here did the opposite of what its
+          # comment claimed: ordinary paging went to the SSD while the compressed
+          # RAM that exists to absorb it sat idle. `swapon --show` on the running
+          # laptop is what caught it. Hibernation is unaffected either way — it
+          # writes to boot.resumeDevice, not to whatever has the highest priority
+          # — but the SSD wear was real.
           priority = 1;
           discardPolicy = "pages";
         };
