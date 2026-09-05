@@ -49,7 +49,13 @@ in {
     gopls
     delve
     gotools
-    
+
+    # cgo is on (CGO_ENABLED=1) by default, and even packages that don't call
+    # into C themselves pull in runtime/cgo — so `go build`/`go run` fails
+    # with "C compiler \"gcc\" not found" without this, for any module.
+    gcc
+
+
     # Postman alternative
     hoppscotch
   ];
