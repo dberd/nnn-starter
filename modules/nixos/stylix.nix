@@ -22,6 +22,14 @@
     # schemes at once.
     image = ../../themes/wallpapers/wallhaven-1pw769_2560x1440.png;
 
+    # Nothing here uses regreet — the login screen is noctalia-greeter
+    # (modules/nixos/niri.nix). Stylix auto-enables its regreet target on every
+    # Linux host anyway, which defines `programs.regreet.*` and makes every
+    # evaluation shout that the option has been renamed to
+    # `services.displayManager.regreet`. That rename is upstream Stylix's to
+    # follow; switching the target off is how this config stops carrying it.
+    targets.regreet.enable = false;
+
     # A hint of terminal transparency for that layered desktop look.
     opacity.terminal = 0.95;
 

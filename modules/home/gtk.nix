@@ -19,6 +19,14 @@
   # Enabled template ids live in modules/home/noctalia.nix.
   stylix.targets.gtk.enable = false;
 
+  # The cursor theme itself comes from stylix.cursor (modules/nixos/stylix.nix),
+  # which sets `home.pointerCursor` for us. Home-manager used to treat "this
+  # option is defined" as "generate the cursor config", and now wants that said
+  # out loud — without this line every evaluation warns that relying on the old
+  # behaviour is deprecated. It changes nothing about the cursor; it only states
+  # the default that was previously implied.
+  home.pointerCursor.enable = true;
+
   gtk = {
     enable = true;
 
