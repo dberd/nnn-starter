@@ -14,6 +14,20 @@
     # packages stay byte-identical to what niri.cachix.org has cached.
     niri.url = "github:sodiboo/niri-flake";
 
+    # MangoWC: a dwl/scenefx-derived compositor, offered as a SECOND wayland
+    # session next to niri rather than a replacement — greetd lists both, so a
+    # bad mango day costs one logout, not a rebuild. Noctalia 5 speaks to it
+    # natively (MangoRuntime + MangoWorkspaceBackend over mango-ipc, plus a
+    # `mango` colour template), which is what makes the pairing work at all.
+    #
+    # Unlike niri/noctalia this one DOES follow our nixpkgs: there is no
+    # mango.cachix.org to miss, so all that not-following would buy is a second
+    # nixpkgs in the lock. It builds from source either way.
+    mango = {
+      url = "github:mangowm/mango";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # Noctalia desktop shell (v5 line). Pinned to the `cachix` branch: upstream
     # force-pushes there only after a commit's package is built and pushed to
     # noctalia.cachix.org, so `packages.default` is guaranteed to be a cache hit
@@ -87,6 +101,7 @@
     nixpkgs,
     home-manager,
     niri,
+    mango,
     noctalia,
     noctalia-greeter,
     disko,
@@ -136,6 +151,7 @@
         specialArgs = {inherit inputs username local;};
         modules = [
           niri.nixosModules.niri
+          mango.nixosModules.mango
           noctalia.nixosModules.default
           noctalia-greeter.nixosModules.default
           disko.nixosModules.disko
@@ -177,12 +193,16 @@
             home-manager.useUserPackages = true;
             home-manager.backupFileExtension = "hm-bak";
             home-manager.extraSpecialArgs = {inherit inputs username local;};
-            # No sharedModules here on purpose. niri-flake auto-imports its home
-            # modules (config + stylix) when home-manager runs as a NixOS module,
-            # and home-manager itself has shipped `programs.noctalia` since
-            # 25.08.2026 — it is the upstreamed copy of the flake's own module,
-            # same options and same build-time `noctalia config validate`.
-            # Importing either one again only double-declares its options.
+            # sharedModules carries exactly one thing: mango's home module.
+            # Everything else is already in scope without help — niri-flake
+            # auto-imports its home modules (config + stylix) when home-manager
+            # runs as a NixOS module, and home-manager itself has shipped
+            # `programs.noctalia` since 25.08.2026, the upstreamed copy of the
+            # flake's own module. Importing either of those again would only
+            # double-declare its options. mango has no such auto-import, so
+            # `wayland.windowManager.mango` (modules/home/mango.nix) exists only
+            # because of this line.
+            home-manager.sharedModules = [mango.hmModules.mango];
             home-manager.users.${username} = import ./modules/home;
           }
         ];

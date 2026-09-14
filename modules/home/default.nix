@@ -10,6 +10,7 @@
     ./mime.nix
     ./gtk.nix
     ./niri.nix
+    ./mango.nix
     ./noctalia.nix
     ./direnv.nix
     ./dev.nix

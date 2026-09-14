@@ -289,6 +289,21 @@ in {
         # their own name ("file.md — VSCodium").
         active_window.max_length = 240.0;
 
+        # Under niri the bar showed workspaces as they were created, because
+        # niri's workspaces ARE dynamic. mango's are not: it has a fixed set of
+        # tags (nine, see tag_num in ./mango.nix), so the widget faithfully drew
+        # all nine and the bar filled up with empty pills.
+        #
+        # `hide_when_empty` is the switch for that — "Hide workspace pills that
+        # have no open windows", so what is left is the occupied tags plus the
+        # focused one. mango's IPC reports `client_count` per tag, which is what
+        # makes the widget able to tell them apart in the first place.
+        #
+        # NOT `show_all_workspaces`, despite the name: that one is labelled
+        # "Show All Monitors" in the UI and controls whether this widget lists
+        # the other monitor's workspaces too. It has nothing to do with empties.
+        workspaces.hide_when_empty = true;
+
         # Hide the player outright when nothing is playing, instead of parking a
         # permanent "Nothing Playing" label in the bar.
         #
@@ -356,7 +371,15 @@ in {
       #             the one that can be taken.
       #   niri    — needs `include "noctalia.kdl"`, a directive niri-stable 25.08
       #             does not have. See the focus-ring note in ./niri.nix.
-      theme.templates.builtin_ids = ["ghostty" "gtk3" "gtk4"];
+      #
+      # mango IS taken, and is the one template here that themes a compositor.
+      # Its apply.sh is the appends-an-include-line kind rather than the
+      # writes-through-the-symlink kind, and modules/home/mango.nix already puts
+      # that include line in config.conf, so the hook finds it, skips the write
+      # and just runs `mmsg dispatch reload_config`. Net effect: mango's border
+      # and root colours follow a palette switch live, which is exactly what the
+      # niri entry above cannot do.
+      theme.templates.builtin_ids = ["ghostty" "gtk3" "gtk4" "mango"];
 
       # Lock on idle. Noctalia has this built in — it was simply disabled, so no
       # systemd unit is needed for it.

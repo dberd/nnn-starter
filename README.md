@@ -14,7 +14,7 @@ run one command, and get a cohesive, themed, developer-ready Wayland desktop.
 
 | Layer        | Choice |
 |--------------|--------|
-| Compositor   | [niri](https://github.com/YaLTeR/niri) (scrollable-tiling Wayland) via [niri-flake](https://github.com/sodiboo/niri-flake) |
+| Compositor   | [niri](https://github.com/YaLTeR/niri) (scrollable-tiling Wayland) via [niri-flake](https://github.com/sodiboo/niri-flake), with [MangoWC](https://github.com/mangowm/mango) offered as a second session |
 | Shell/UI     | [Noctalia](https://github.com/noctalia-dev/noctalia-shell) **v5** (bar, launcher, notifications, lock, control center) |
 | Theming      | [Stylix](https://github.com/nix-community/stylix) with the **Kanagawa** palette — one scheme themes everything |
 | Terminal     | [Ghostty](https://ghostty.org) |
@@ -24,7 +24,7 @@ run one command, and get a cohesive, themed, developer-ready Wayland desktop.
 | Browser      | [Zen](https://zen-browser.app) (beta channel, via the community flake) |
 | File manager | [Nautilus](https://apps.gnome.org/Nautilus/) (GNOME Files) |
 | Font         | Maple Mono NF |
-| Login        | greetd + tuigreet → niri session |
+| Login        | greetd + [noctalia-greeter](https://github.com/noctalia-dev/noctalia-greeter) → niri (default) or mango session |
 
 ### Modern command-line toolset
 `lsd` · `fzf` · `bat` · `btop` · `ripgrep` · `fd` · `zoxide` · `eza` · `yazi` ·
@@ -83,8 +83,8 @@ Real secrets never go in these files — see `modules/nixos/secrets.nix`.
 flake.nix              # inputs + mkHost -> nixosConfigurations.{nnn-desktop,nnn-t480s}
 hosts/common/          # shared: locale, keyboard layout, stateVersion
 hosts/<host>/          # per machine: local.nix, hardware-configuration.nix, disko.nix
-modules/nixos/         # system: boot, audio, niri, noctalia, stylix, users…
-modules/home/          # user: fish, ghostty, neovim, niri keybinds, cli tools…
+modules/nixos/         # system: boot, audio, niri, mango, noctalia, stylix, users…
+modules/home/          # user: fish, ghostty, neovim, niri/mango keybinds, cli tools…
 themes/kanagawa.yaml   # vendored base16 palette (Stylix source of truth)
 ```
 
@@ -105,6 +105,42 @@ themes/kanagawa.yaml   # vendored base16 palette (Stylix source of truth)
 | `Print` | Screenshot |
 | `Mod`+`Shift`+`/` | Hotkey overlay (full list) |
 | `Mod`+`Shift`+`E` | Quit niri |
+
+## Second session: MangoWC
+
+niri is the default and nothing here depends on replacing it. `mango` is
+installed alongside it as a second wayland session, so the greeter lists both
+and switching is a logout — pick **Mango** instead of **Niri** at the login
+screen. `session.default` in `hosts/<host>/default.nix` still says `niri`.
+
+Noctalia itself needs no changes to follow: its unit is
+`WantedBy=graphical-session.target` rather than `niri.service`, and Noctalia v5
+talks to mango natively (workspaces and keyboard layout over `mango-ipc`, plus a
+`mango` colour template — so a palette switch in the GUI moves mango's borders
+live, which the niri session cannot do).
+
+What differs under mango, all of it deliberate:
+
+| | niri | mango |
+|---|---|---|
+| Layout | scrollable columns | dwl tags; every tag starts on the `scroller` layout, `Mod`+`N` cycles |
+| Workspaces | dynamic, `Mod`+`1`…`5` | nine fixed tags, `Mod`+`1`…`9` |
+| Wallpaper | one copy in niri's overview backdrop (`place-within-backdrop`) | ordinary background layer — mango has no backdrop |
+| XWayland | `xwayland-satellite` | built in |
+| Polkit | `niri-flake-polkit.service` | same agent, started from mango's `autostart.sh` |
+| Screenshots | niri built-in | `noctalia msg screenshot-region` / `-fullscreen` |
+| Screencast portal | `xdg-desktop-portal-gnome` | `xdg-desktop-portal-wlr` |
+| Not ported | tabbed columns (`Mod`+`W`), hotkey overlay | — |
+
+Everything else — launchers, the Noctalia panel binds, media and brightness
+keys, monitor geometry and scaling — is the same on both, and the monitor layout
+is still described once in `hosts/<host>/local.nix`.
+
+Config lives in [`modules/nixos/mango.nix`](modules/nixos/mango.nix) (thin: the
+flake's own module does the portals and the session entry) and
+[`modules/home/mango.nix`](modules/home/mango.nix) (the session proper). The
+generated `config.conf` is validated at build time with `mango -c … -p`, so a
+bad bind or an unknown key fails the rebuild rather than the login.
 
 ## Reskin it
 
@@ -199,3 +235,8 @@ old series lives on `legacy-v4`. niri uses niri-flake's prebuilt
 The two caches are trusted in [`modules/nixos/default.nix`](modules/nixos/default.nix)
 so your machine pulls binaries too. Neither input may `follows` our `nixpkgs` —
 that would rebuild them against a different nixpkgs and miss the cache.
+
+The one exception is **mango**: it has no cache of its own, so it *does* follow
+our `nixpkgs` (there is nothing to miss) and compiles from source — wlroots +
+scenefx + the compositor, a few minutes, once per input bump. Only the second
+session pays for it.

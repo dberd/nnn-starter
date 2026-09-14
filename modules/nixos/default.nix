@@ -5,6 +5,7 @@
     ./audio.nix
     ./fonts.nix
     ./niri.nix
+    ./mango.nix
     ./noctalia.nix
     ./desktop.nix
     ./stylix.nix
