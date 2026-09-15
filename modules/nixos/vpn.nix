@@ -11,11 +11,26 @@
 # running a second engine for one application. The full history is in
 # docs/proxy.md §9, not repeated here.
 #
-# The price of Throne is that it fights the corporate VPN, and not through
-# routing: it works in nftables, ahead of the routing rules, and its output
-# chain ends in two catch-alls with no exemption for RFC1918 — every DNS query
-# is redirected to its own resolver, and every IPv4 TCP connection into its
-# transparent proxy. Step 5 of the routing script below is what defuses both.
+# The price of Throne is that it fights the corporate VPN on two fronts, and
+# neither of them is routing.
+#
+#   In nftables, ahead of the routing rules, where its output chain ends in a
+#   catch-all that redirects every IPv4 TCP connection into its transparent
+#   proxy. 1.2.2 does exempt RFC1918 (an earlier version did not, which is what
+#   the older comments here were written against), so the victim is no longer
+#   corporate traffic itself but the *gateway*: vpn.efko.ru is a public address,
+#   so snx-rs' own tunnel socket gets proxied and the tunnel dies within
+#   seconds. Steps 5 and 6 of the routing script below are what defuse that.
+#
+#   In systemd-resolved, where its link carries the routing domain `~.` — every
+#   name, from every link's point of view, is its business. Only a more specific
+#   domain on another link outranks that, and the corporate suffix is exactly
+#   such a domain, so step 4a's job is to make sure the tunnel's link keeps
+#   carrying it in the form that both routes and completes short names.
+#
+# The whole policy is "everything corporate goes to snx, everything else to
+# Throne", with corporate meaning: 10/8 plus whatever routes the gateway pushes
+# (by address), and the gateway's search domains (by name).
 {
   config,
   lib,
@@ -231,9 +246,16 @@ in {
       #     it. 20 s is generous next to the second it actually takes, and the
       #     loop is skipped entirely when there is no tunnel — which is the
       #     normal state at boot.
+      #
+      #     The resolver is waited on as well, not just the routes: the two are
+      #     installed separately, and step 4 reads the nameservers off the link
+      #     the moment this loop ends. Waiting on the routes alone left a run
+      #     that caught the tunnel early with an empty nameserver list.
       if ip link show snx-tun >/dev/null 2>&1; then
           for _ in $(seq 20); do
-              [ -n "$(ip route show table 18000 2>/dev/null)" ] && break
+              [ -n "$(ip route show table 18000 2>/dev/null)" ] \
+                && [ -n "$(resolvectl dns snx-tun 2>/dev/null | sed 's/^[^:]*://' | tr -d '[:space:]')" ] \
+                && break
               sleep 1
           done
       fi
@@ -248,6 +270,55 @@ in {
           ip route replace "$d" dev snx-tun table 18000 2>/dev/null || true
       done
 
+      # 4a) Names, which routing does not cover at all. Throne's link holds the
+      #     routing domain `~.`, so systemd-resolved considers it a candidate
+      #     for every query, and only a more specific routing domain on another
+      #     link outranks it.
+      #
+      #     In resolved a plain domain is *both*: it completes short names and
+      #     it routes queries for that suffix to this link. A `~`-prefixed one
+      #     routes only. So the plain form is what is wanted here, and setting
+      #     both forms at once is not the sum of the two — resolved keys the
+      #     list by domain name, routing-only wins, and short-name completion
+      #     is silently lost. resolved only ever appends a search domain to a
+      #     single-label name, so what that costs is `dt-revproxy` resolving to
+      #     dt-revproxy.efko.ru (verified 07.09 with the plain form) — a name
+      #     that already has a dot in it was never completed either way.
+      #
+      #     What this step buys, then, is not a fix for something snx-rs gets
+      #     wrong today — with set-routing-domains=false it registers exactly
+      #     this — but a guarantee that does not depend on that profile field:
+      #     flip it to true and snx-rs would register `~efko.ru`, losing the
+      #     completion; leave it false and this is a no-op that re-asserts the
+      #     same list. Either way the corporate suffix stays more specific than
+      #     Throne's `~.`, which is what keeps corporate names off Throne's
+      #     resolver. The list is read back off the link rather than hardcoded,
+      #     so domains the gateway starts or stops pushing follow along;
+      #     efko.ru is only the fallback for the case where it pushed none.
+      #     Nothing to undo on disconnect — the link and its domains disappear
+      #     with the tunnel.
+      if ip link show snx-tun >/dev/null 2>&1; then
+          DOMS=$(resolvectl domain snx-tun 2>/dev/null | sed 's/^[^:]*://' \
+            | tr ' ' '\n' | sed 's/^~//' | grep -E '^[a-zA-Z0-9][a-zA-Z0-9.-]*$' || true)
+          [ -n "$DOMS" ] || DOMS=efko.ru
+          resolvectl domain snx-tun $DOMS || true
+      fi
+
+      # 4b) The gateway announces the subnets it feels like announcing, and a
+      #     corporate host outside that list had nowhere to go but Throne, which
+      #     cannot reach it. Nothing else on this machine uses 10/8 — the LAN is
+      #     192.168.1.0/24 and docker sits on 172.17/172.19/172.28 — so the
+      #     whole /8 is treated as corporate while the tunnel is up.
+      #
+      #     It is the least specific route in the table, so it shadows neither
+      #     the announced subnets nor the tunnel's own 10.200.0.0/20; it only
+      #     catches what the gateway left unsaid. Added before the set below is
+      #     built, so step 5 picks it up as one more corporate prefix and the
+      #     nftables bypass covers it too.
+      if [ -n "$(ip route show table 18000 2>/dev/null)" ]; then
+          ip route replace 10.0.0.0/8 dev snx-tun table 18000 2>/dev/null || true
+      fi
+
       # 5) Everything above is routing, and routing is not where sing-box in TUN
       #    mode makes its decisions. It works in nftables, before the routing
       #    rules get a say, and its output chain ends in a catch-all:
@@ -256,12 +327,16 @@ in {
       #        ... th dport 53 dnat ip to <its resolver>          # all DNS
       #        ... meta l4proto tcp redirect to :<its port>       # all TCP
       #
-      #    The only exemptions are 127.0.0.0/8 and the machine's own addresses —
-      #    nothing for RFC1918. So corporate traffic never reached snx-tun no
-      #    matter what table 18000 said: DNS was answered by a public resolver
-      #    (snx-tun's tx counter stayed at zero), and TCP was redirected into the
-      #    proxy, which then could not reach an internal host and dropped the
-      #    connection right after the TLS ClientHello.
+      #    The exemptions it ships with were 127.0.0.0/8 and the machine's own
+      #    addresses, nothing for RFC1918. So corporate traffic never reached
+      #    snx-tun no matter what table 18000 said: DNS was answered by a public
+      #    resolver (snx-tun's tx counter stayed at zero), and TCP was redirected
+      #    into the proxy, which then could not reach an internal host and
+      #    dropped the connection right after the TLS ClientHello.
+      #
+      #    1.2.2 does exempt RFC1918, which retires that particular failure but
+      #    not this step — see step 6 for what the catch-all still catches, and
+      #    why the set below has to exist before the tunnel does.
       #
       #    A nat chain at a lower priority number runs first, and a DNAT to the
       #    address the packet already carries still counts as a NAT decision: the
@@ -269,9 +344,11 @@ in {
       #    that flow. Rewriting an address to itself changes nothing else.
       #
       #    The set is built from table 18000 — the corporate routes the gateway
-      #    pushed — plus the nameservers, which are not necessarily inside them.
-      #    Harmless when sing-box runs as a plain local proxy: it installs no
-      #    firewall rules then, and the table is simply never consulted.
+      #    pushed, plus the 10/8 aggregate and the explicit nameserver routes
+      #    added above — and from the gateway addresses themselves, which is
+      #    what step 6 is about. Harmless when sing-box runs as a plain local
+      #    proxy: it installs no firewall rules then, and the table is simply
+      #    never consulted.
       #
       #    That defuses the nat hook and nothing else, which turns out not to
       #    be enough: sing-box hooks output four times over, and only one of
@@ -296,12 +373,39 @@ in {
         | awk '$1 == "meta" && $2 == "mark" && $NF == "return" {print $3; exit}')
       [ -n "$BYPASS_MARK" ] || BYPASS_MARK=0x2024
 
-      nft list table inet snx-bypass >/dev/null 2>&1 \
-        && nft delete table inet snx-bypass || true
+      # 6) The set carries the gateway addresses as well, and is installed even
+      #    with no tunnel at all — which is the whole point of this step.
+      #
+      #    sing-box's catch-all does not spare the gateway: vpn.efko.ru is a
+      #    public address, so snx-rs' own tunnel socket was redirected into the
+      #    proxy. Authentication survived that (it is plain HTTPS, and the
+      #    profile and the lease came back fine), the tunnel did not: it died
+      #    six seconds after connecting, with "send failed because receiver is
+      #    gone" and then "Cannot send keepalive packet, exiting", leaving
+      #    snxctl reporting Connected with zero bytes in either direction.
+      #
+      #    The routing rules for those same addresses (steps 1-2) cannot help:
+      #    a redirect in nftables happens before the routing tables are read.
+      #    And the reason this looked intermittent rather than broken is
+      #    conntrack — a redirect only applies to *new* connections, so
+      #    connecting snx before starting Throne left an established flow that
+      #    its rules never touched. Starting Throne first broke it every time.
+      #
+      #    Which is why the set may not be built from table 18000 alone: that
+      #    table is empty until the tunnel is up, and the bypass has to already
+      #    exist for the tunnel to come up in the first place. $TARGETS holds
+      #    the three static /24s plus whatever the profile resolves to now, so
+      #    it is never empty and the table is always installed.
       CORP=$(ip route show table 18000 2>/dev/null | awk '$1 ~ /^[0-9]/ {print $1}')
-      ELEMENTS=$(printf '%s\n' $CORP $SNX_DNS | sort -u | paste -sd, -)
+      ELEMENTS=$(printf '%s\n' $TARGETS $CORP $SNX_DNS | sort -u | paste -sd, -)
       if [ -n "$ELEMENTS" ]; then
           {
+            # One transaction: add-then-delete is the idiom for "replace,
+            # whether or not it is there", and it leaves no window in which the
+            # bypass is missing — a window a reconnect is quite likely to land
+            # in, since that is when this unit runs.
+            echo "add table inet snx-bypass"
+            echo "delete table inet snx-bypass"
             echo "table inet snx-bypass {"
             echo "  set corp {"
             echo "    type ipv4_addr"
