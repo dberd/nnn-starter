@@ -30,6 +30,29 @@
     # follow; switching the target off is how this config stops carrying it.
     targets.regreet.enable = false;
 
+    # Chromium's colour is Noctalia's, and this target actively prevents that.
+    #
+    # It exists only to push one enterprise policy — it turns
+    # `programs.chromium.enable` on purely to write
+    # /etc/chromium/policies/managed/extra.json with
+    # `{"BrowserThemeColor": "<base00>"}`. Per Chrome Enterprise, that policy
+    # does not merely suggest a colour: it makes the theme ADMIN-MANAGED, and
+    # "users won't be able to change the theme set by the policy".
+    #
+    # A Chromium theme is an extension, so the Noctalia one is refused with
+    # "Noctalia (extension ID …) is blocked by the administrator" — which reads
+    # like a broken extension and is really this line. Nothing else in the
+    # policy file is a blocklist; the NixOS module writes only extraOpts.
+    #
+    # Off, extraOpts is empty, the policy file is not written at all, and the
+    # unpacked theme from theme.templates (modules/home/noctalia.nix) loads.
+    # Nothing is lost: that theme carries the whole palette and follows a
+    # switch live, where the policy was one flat colour fixed at build time.
+    #
+    # Note this is a NIXOS-scope target. The home-manager scope has no chromium
+    # target, so `stylix.targets` in a home module cannot reach it.
+    targets.chromium.enable = false;
+
     # A hint of terminal transparency for that layered desktop look.
     opacity.terminal = 0.95;
 

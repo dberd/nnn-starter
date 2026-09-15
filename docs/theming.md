@@ -75,7 +75,7 @@ only one that actively replaces a read-only symlink with a real file.
 | `opencode` | `~/.config/opencode/themes/matugen.json` | `stylix.targets.opencode` off; `tui.theme = "matugen"` |
 | `obs` | `~/.config/obs-studio/themes/matugen.obt` | nothing — pick it once in OBS's UI |
 | `heroiclauncher` | `~/.config/heroic/themes/matugen.css` | nothing — pick it once in Heroic's UI |
-| `ungoogled-chromium` | `~/.cache/noctalia/ungoogled-chromium/theme/` | one **Load unpacked** at `chrome://extensions` |
+| `ungoogled-chromium` | `~/.cache/noctalia/ungoogled-chromium/theme/` | `stylix.targets.chromium` off **at the NixOS level** (see below); then one **Load unpacked** at `chrome://extensions` |
 
 ### Stylix — needs a rebuild to follow
 
@@ -123,6 +123,25 @@ New sessions get the new palette immediately; an open one needs restarting.
 It is also the one app here whose Stylix target was *already* doing nothing:
 `stylix.targets.zellij` writes `themes/stylix.kdl` but never sets `theme`, so
 nothing ever selected it and zellij had been running unthemed all along.
+
+**Stylix targets exist in two scopes, and they are different lists.** Most are
+home-manager targets, reachable as `stylix.targets.<name>` from a module under
+`modules/home/`. A few are NixOS targets and can only be switched off from
+`modules/nixos/stylix.nix` — `chromium` is one, and checking only the
+home-manager scope will tell you it does not exist. To see the NixOS list:
+
+```sh
+nix eval .#nixosConfigurations.nnn-desktop.config.stylix.targets --apply 'builtins.attrNames'
+```
+
+That one cost an hour. Stylix's chromium target turns `programs.chromium` on
+purely to write `{"BrowserThemeColor": "<base00>"}` into
+`/etc/chromium/policies/managed/extra.json`, and per Chrome Enterprise that
+policy makes the theme **admin-managed** — "users won't be able to change the
+theme set by the policy". A Chromium theme is an extension, so loading the
+Noctalia one fails with *"Noctalia (extension ID …) is blocked by the
+administrator"*, which reads like a broken extension and is really that policy.
+Nothing in the file is a blocklist; the NixOS module writes only `extraOpts`.
 
 **Three hooks refuse to bootstrap their own config.** `fastfetch` errors out,
 `cava` exits 1, and `btop` warns and exits 0 — all three when the app's config
