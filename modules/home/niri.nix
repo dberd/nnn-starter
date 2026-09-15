@@ -328,6 +328,23 @@
         "session"
       ];
 
+      # The notes plugin's panel. Plugin panels are addressed as
+      # "<plugin-id>:<entry-id>", which is why this id has a slash AND a colon
+      # in it — `noctalia msg panel-toggle` with a bad id prints the full list
+      # of live ones, which is the reliable way to find any of them.
+      #
+      # It opens as a full-height sheet on the right rather than hanging off the
+      # bar: the plugin's manifest asks for that and Noctalia enforces it (see
+      # plugin_settings in ./noctalia.nix). It is still a layer-shell surface,
+      # not a window — niri cannot move or tile it, and no window-rule here will
+      # ever match it.
+      "Mod+Shift+N".action.spawn = [
+        "noctalia"
+        "msg"
+        "panel-toggle"
+        "noctalia/notes:panel"
+      ];
+
       # Focus
       "Mod+H".action.focus-column-left = {};
       "Mod+L".action.focus-column-right = {};

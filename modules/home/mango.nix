@@ -168,6 +168,11 @@
       "SUPER,Y,spawn,${noctalia} msg panel-toggle wallpaper"
       "SUPER,comma,spawn,${noctalia} msg panel-toggle control-center"
       "SUPER,X,spawn,${noctalia} msg panel-toggle session"
+
+      # The notes plugin's panel. Plugin panels are addressed as
+      # "<plugin-id>:<entry-id>", hence the slash and the colon. Shift is
+      # required: plain SUPER+N is switch_layout further down.
+      "SUPER+SHIFT,N,spawn,${noctalia} msg panel-toggle noctalia/notes:panel"
       "SUPER+ALT,L,spawn,${noctalia} msg session lock"
 
       # Layout toggle, routed through Noctalia rather than xkb so the OSD is
