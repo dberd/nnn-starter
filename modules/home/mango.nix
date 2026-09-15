@@ -192,10 +192,13 @@
       # pinned, and clients that lay out against their configured size
       # (VSCodium's panes) drew themselves wrong.
       #
-      # Full width reaches the same geometry anyway: with scroller_structs=0 a
-      # 1.0 column is exactly mon.w minus the outer gaps, which is what
-      # maximize-screen computes too (scroll.c:131) — but the window stays an
-      # ordinary tiled one, draggable and resizable throughout.
+      # Full width reaches near enough the same geometry, but NOT because the
+      # two share any arithmetic — maximize-screen subtracts gappoh, a 1.0
+      # column subtracts scroller_structs, and nothing in mango keeps them in
+      # step. They agree only because scroller_structs is set to gappoh by hand
+      # further down; read the note there before changing either. What this buys
+      # over maximize-screen is that the window stays an ordinary tiled one,
+      # draggable and resizable throughout.
       #
       # Mod+Shift+F is still the real thing: whole monitor, over the bar, no
       # border.
@@ -441,12 +444,27 @@ in {
       tag_gather=1
 
 
-      # Zero, not the stock 20. Upstream calls this "width reserved on sides
-      # when window ratio is 1" — a peek strip so the neighbouring column stays
-      # visible at full width. niri has no such thing, and neither does mango's
-      # own Mod+F, so at 20 a full-width column came up ~14px short per side of
-      # what Mod+F produces.
-      scroller_structs=0
+      # Upstream calls this "width reserved on sides when window ratio is 1" —
+      # a peek strip so the neighbouring column stays visible at full width.
+      # It is also, and this is the part the name hides, THE ONLY SOURCE OF A
+      # LEFT/RIGHT MARGIN for a tiled scroller column. gappoh is never consulted
+      # on the scroll axis at all (scroll.c:353):
+      #
+      #   max_client_width = m->w.width - 2*scroller_structs - gappih
+      #   target_geom.x    = m->w.x + scroller_structs            (scroll.c:482)
+      #
+      # so at the stock 20 a 1.0 column sits 20px from one edge and 25px from
+      # the other, and at 0 it goes edge to edge — which is what Mod+F and the
+      # `scroller_proportion:1.0` window rules below were doing. gappoh only
+      # reaches a window through togglemaximizescreen (scroll.c:472), which this
+      # config deliberately does not use.
+      #
+      # Set to gappoh, so the two agree: a lone window centres with ~12px each
+      # side (n_heads == 1 forces the centring branch, scroll.c:446) and a
+      # focused full-width column among others gets 10px on the side it is
+      # aligned to and 15px on the other. The 5px difference is gappih and is
+      # structural — stock's 20 produces 20/25 the same way.
+      scroller_structs=10
       scroller_default_proportion=0.5
       scroller_proportion_preset=0.333333,0.5,0.666667,1.0
 
