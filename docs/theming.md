@@ -124,6 +124,26 @@ It is also the one app here whose Stylix target was *already* doing nothing:
 `stylix.targets.zellij` writes `themes/stylix.kdl` but never sets `theme`, so
 nothing ever selected it and zellij had been running unthemed all along.
 
+**A stale Zen profile can silently block the Zen hook — and every profile after
+it.** The hook loops over profiles inside `find … | while read`, with
+`set -euo pipefail` in force. A dangling symlink anywhere in that loop —
+`~/.config/zen/<profile>/chrome/userChrome.css` pointing into a
+garbage-collected home-manager generation, say — makes `touch` fail with
+*"No such file or directory"*, which kills the subshell and skips every profile
+the loop had not reached yet. That is how `default.pre-migration`, left over
+from the August migration and not even listed in `profiles.ini`, stopped the
+real `default` profile from ever being themed. Symptom: the CSS appears under
+`~/.cache/noctalia/zen-browser/` but no `@import` shows up in the profile.
+Check for dead symlinks before blaming the config:
+
+```sh
+find ~/.config/zen -xtype l
+```
+
+Also note `noctalia msg templates-apply` returns `ok` immediately and runs the
+hooks asynchronously — grepping for the result in the same command line races
+them, and reports a failure that is not there.
+
 **Zen keeps its chrome, loses its reader mode.** The Stylix target set seven
 prefs on the profile. Three named fonts that `fonts.nix` already makes
 fontconfig resolve to, so dropping them changes nothing; one was
