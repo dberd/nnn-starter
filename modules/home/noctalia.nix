@@ -392,33 +392,115 @@ in {
 
       # Noctalia can theme external apps from the active palette, which is what
       # makes them follow a theme switch at runtime — something Stylix cannot do,
-      # since it writes into the store at build time. Each id here has its Stylix
-      # target switched off in the matching home module, so exactly one of the two
-      # owns each file: ghostty in ./ghostty.nix, gtk3/gtk4 in ./gtk.nix.
+      # since it writes into the store at build time. Every id listed below has
+      # its Stylix counterpart switched off in the matching home module, so
+      # exactly one of the two owns each file; the module is named against each
+      # id, and the file it touches is what the two would otherwise fight over.
       #
-      # Only these four. The rest of the catalogue is either irrelevant or worse
-      # than what we have:
-      #   qt      — the template has no post_hook, so it writes
-      #             qt{5,6}ct/colors/noctalia.conf and nothing ever selects it;
-      #             and our Qt style is Kvantum, which paints from its own theme
-      #             and ignores the qtct palette anyway. Stylix keeps Qt.
-      #   btop,   — their apply.sh writes *through* the config symlink
-      #   starship  (`cat "$tmp" > "$file"`), which lands in read-only
-      #             /nix/store and fails. Only the GTK template handles that case
-      #             (it replaces the symlink with a real file), which is why it is
-      #             the one that can be taken.
-      #   niri    — needs `include "noctalia.kdl"`, a directive niri-stable 25.08
-      #             does not have. See the focus-ring note in ./niri.nix.
+      # What is left to Stylix after this is the set Noctalia has no template
+      # for at all — fonts, the cursor theme, Qt/Kvantum — plus niri's focus ring
+      # and zen's userChrome, which it does have templates for but cannot use
+      # here. Those five are the reason Stylix is still in this config.
       #
-      #   mango   — taken, and the one template here that themes a compositor.
-      #             Its apply.sh is the appends-an-include-line kind rather than
-      #             the writes-through-the-symlink kind, and modules/home/mango.nix
-      #             already puts `source=~/.config/mango/noctalia.conf` in
-      #             config.conf, so the hook finds it, skips the write and just
-      #             runs `mmsg dispatch reload_config`. Net effect: mango's
-      #             border and root colours follow a palette switch live, which
-      #             is exactly what the niri entry above cannot do.
-      theme.templates.builtin_ids = ["ghostty" "gtk3" "gtk4" "mango"];
+      # WHAT DECIDES WHETHER A TEMPLATE CAN BE TAKEN. Most apply.sh hooks mutate
+      # the app's own config file with `cat "$tmp" > "$file"`, and home-manager
+      # writes leaf configs as symlinks into read-only /nix/store. Not only the
+      # write fails there — several of these scripts `touch` the file first, and
+      # touch through a store symlink is already "Permission denied". Every hook
+      # runs under `set -euo pipefail`, so it aborts on the spot.
+      #
+      # So the rule is: a template can own an app only if home-manager does not
+      # write that app's config. Usually that is arranged simply by turning the
+      # Stylix target off, because most home-manager modules write nothing when
+      # their settings are empty (`xdg.configFile."bat/config" = mkIf (cfg.config
+      # != {})` and friends) and Stylix was the only thing filling them in.
+      # Where that is not enough the module itself has to go — see lazygit in
+      # ./git.nix, which writes config.yml unconditionally.
+      #
+      # The exceptions are the hooks that append rather than overwrite: ghostty
+      # only needs `theme = noctalia` to already be in the file (./ghostty.nix
+      # sets it, so the grep matches and the hook does nothing), mango only needs
+      # its `source=` line, and the GTK hook is the one that actively replaces a
+      # read-only symlink with a real file.
+      #
+      # Rejected, and why:
+      #   qt       — no post_hook at all, so it writes qt{5,6}ct/colors/noctalia.conf
+      #              and nothing ever selects it. There is no Kvantum template in
+      #              either catalogue, and Kvantum paints from its own theme and
+      #              ignores the qtct palette regardless. Stylix keeps Qt.
+      #   niri     — wants `include "noctalia.kdl"`, which niri-stable 25.08 does
+      #              not parse ("unexpected node `include`"). The hook itself is
+      #              the safe append kind, so this becomes takeable the day niri
+      #              gains the directive. Stylix keeps the focus ring; see the
+      #              note in ./niri.nix.
+      #   starship — writes through the symlink, and the prompt is hand-written
+      #              against palette names in ./starship.nix anyway.
+      #   neovim   — appends to init.lua, a store symlink. kanagawa-nvim owns the
+      #              colours (./neovim.nix).
+      #   zen-browser — rewrites userChrome.css/userContent.css/user.js in each
+      #              profile, which are exactly the files Stylix's zen target
+      #              writes as store symlinks (./apps.nix).
+      #   papirus-icons — does not work on NixOS at all: its hook reads
+      #              /usr/share/icons/$variant, finds nothing, and skips every
+      #              variant. Fixing it needs a user template of our own
+      #              (theme.templates.user.<id>) seeding from pkgs.papirus-icon-theme
+      #              and calling pkgs.papirus-folders. Not done.
+      #
+      # Note ids are NOT validated: `noctalia config validate` accepts a
+      # misspelled builtin or community id without a word, and the only symptom
+      # is a theme that never appears. Check new ones against the live catalogue
+      # (~/.local/state/noctalia/community-templates/catalog.json).
+      theme.templates.builtin_ids = [
+        "ghostty" # ./ghostty.nix — seeds the theme file and pre-sets `theme =`
+        "gtk3"
+        "gtk4" # ./gtk.nix — the one hook that handles a read-only symlink
+        "mango" # the only compositor here that follows a palette switch live
+        "cava" # ./apps.nix keeps it a raw package, so its config is unowned
+        "btop" # ./cli.nix — Stylix target off, so btop.conf is unowned
+      ];
+
+      # The rest of the catalogue is fetched at runtime from api.noctalia.dev
+      # rather than shipped in the binary, and cached under
+      # ~/.local/state/noctalia/community-templates. Consequence worth knowing:
+      # on a machine that has never had network since install, these do nothing
+      # until the catalogue is fetched — unlike the builtin list above.
+      #
+      # Split by what each one needs from us:
+      #
+      #   no hook at all, writes only into its own theme directory — nothing to
+      #   arrange beyond pointing the app at the theme:
+      #     fzf                 -> themes/noctalia.fish, sourced in ./fish.nix
+      #     opencode            -> themes/matugen.json, selected in ./opencode.nix
+      #     obs                 -> themes/matugen.obt, picked once in OBS's UI
+      #     heroiclauncher      -> themes/matugen.css, picked once in Heroic's UI.
+      #                            Gated on ~/.config/heroic existing, so it stays
+      #                            inert until Heroic has been run once.
+      #     ungoogled-chromium  -> an unpacked extension under ~/.cache. Needs one
+      #                            manual "Load unpacked" at chrome://extensions;
+      #                            after that it re-themes itself in place.
+      #
+      #   hook rewrites the app's config, so the Stylix target had to go and the
+      #   file is now the template's:
+      #     bat                 -> ./cli.nix, and installBatSyntax off in
+      #                            ./ghostty.nix, which was the other thing
+      #                            keeping bat/config in the store
+      #     lazygit             -> ./git.nix (the module had to go too)
+      #     yazi                -> already a raw package in ./cli.nix
+      #     fastfetch           -> ./cli.nix, which also has to SEED the file:
+      #                            this hook refuses to create one, and insists
+      #                            it be strict JSON (it jq-merges into it, and
+      #                            says so loudly if it finds JSONC comments).
+      theme.templates.community_ids = [
+        "bat"
+        "fastfetch"
+        "fzf"
+        "heroiclauncher"
+        "lazygit"
+        "obs"
+        "opencode"
+        "ungoogled-chromium"
+        "yazi"
+      ];
 
       # Lock on idle. Noctalia has this built in — it was simply disabled, so no
       # systemd unit is needed for it.

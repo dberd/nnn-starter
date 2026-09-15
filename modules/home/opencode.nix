@@ -13,12 +13,24 @@ in {
   # vendor. Unlike `claude` it is not unfree, so it needs nothing from the
   # allowUnfree set in flake.nix.
   #
-  # Only the package. ~/.local/share/opencode (auth, sessions) stays
-  # runtime-managed; the declarative half is `settings` (opencode.json) and
-  # `tui` (tui.json), and neither file is written until one of them is
-  # non-empty — see ./noctalia.nix for why that emptiness matters, since the
-  # theme in themes/ is Noctalia's to write.
-  programs.opencode.enable = true;
+  # ~/.local/share/opencode (auth, sessions) stays runtime-managed. The
+  # declarative half is `settings` (opencode.json) and `tui` (tui.json); only
+  # the latter is used here, and only to name a theme.
+  #
+  # Colour comes from Noctalia's community template, which renders
+  # ~/.config/opencode/themes/matugen.json on every palette change and has no
+  # hook at all — nothing to arrange beyond naming the theme. Note the key is
+  # `tui.theme` (tui.json), NOT `settings.theme`: opencode moved theme selection
+  # out of opencode.json, and Stylix's own target sets tui.theme too, which is
+  # what the disable below is resolving. `programs.opencode.themes` stays unused
+  # on purpose — it would write store symlinks into the directory the template
+  # owns.
+  stylix.targets.opencode.enable = false;
+
+  programs.opencode = {
+    enable = true;
+    tui.theme = "matugen";
+  };
 
   # Route it through the tunnel, for the same reason and by the same mechanism
   # as `claude`: when the proxy has no connection up nothing is listening on the

@@ -84,6 +84,29 @@
     interactiveShellInit = ''
       # Keep fish inside `nix-shell` instead of falling back to bash.
       ${pkgs.any-nix-shell}/bin/any-nix-shell fish | source
+
+      # fzf's colours, from Noctalia's palette rather than Stylix, so they
+      # follow a theme switch without a rebuild (stylix.targets.fzf is off in
+      # ./cli.nix; the template id is in ./noctalia.nix).
+      #
+      # The `set -e` is not tidiness, it is required. The snippet ends with
+      #
+      #   set -Ux FZF_DEFAULT_OPTS "$FZF_DEFAULT_OPTS\n<theme opts>"
+      #
+      # — a UNIVERSAL variable that it APPENDS to. Universals persist in
+      # fish_variables, so sourcing this once per shell would re-append the
+      # whole block on every shell start and grow the value without bound.
+      # Erasing first makes each source produce exactly the theme, and costs
+      # nothing else: nothing here sets FZF_DEFAULT_OPTS for its own reasons
+      # (programs.fzf contributes defaultCommand, which is a different
+      # variable).
+      #
+      # The guard matters on a fresh machine: the file does not exist until
+      # Noctalia has applied its templates at least once.
+      if test -f $HOME/.config/fzf/themes/noctalia.fish
+          set -e FZF_DEFAULT_OPTS
+          source $HOME/.config/fzf/themes/noctalia.fish
+      end
     '';
   };
 }

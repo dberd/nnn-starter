@@ -55,7 +55,11 @@
     vscodium # default GUI editor, see modules/home/mime.nix
     qbittorrent
     localsend # ports opened in modules/nixos/networking.nix
-    cava # audio visualizer
+    # Audio visualiser. A raw package, and it has to stay one: Noctalia's cava
+    # template rewrites ~/.config/cava/config, and `programs.cava` would make
+    # that a read-only store symlink the hook cannot touch. See theme.templates
+    # in ./noctalia.nix.
+    cava
   ];
 
   # Nautilus' "Open in Terminal" entry — the extension defaults to gnome-terminal.

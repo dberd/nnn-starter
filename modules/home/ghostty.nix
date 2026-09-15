@@ -50,6 +50,21 @@ in {
     enable = true;
     enableFishIntegration = true;
 
+    # Off so that bat's own config file stays unowned by home-manager.
+    #
+    # This option does two things: it drops a sublime-syntax into
+    # ~/.config/bat/syntaxes, and — the part that matters — it sets
+    # `programs.bat.config.map-syntax`, which is enough to make home-manager
+    # write ~/.config/bat/config as a store symlink. Noctalia's bat template
+    # has to edit that file, and its hook `touch`es it first, which is already
+    # "Permission denied" on a store symlink. See theme.templates in
+    # ./noctalia.nix.
+    #
+    # What it costs: `bat ~/.config/ghostty/config` is no longer syntax
+    # highlighted. That file is a store symlink nobody edits, so the trade is
+    # one-sided.
+    installBatSyntax = false;
+
     # Font still comes from Stylix; colour comes from Noctalia's template.
     settings = {
       # Set by us now that Stylix no longer writes this file.

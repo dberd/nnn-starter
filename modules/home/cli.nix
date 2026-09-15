@@ -1,8 +1,46 @@
 {
+  config,
+  lib,
   pkgs,
   username,
   ...
-}: {
+}: let
+  # fastfetch's own config, in the one form its Noctalia hook will accept.
+  #
+  # That hook merges the generated palette into this file with jq and writes the
+  # result back, so two things have to hold: the file must already exist (it
+  # refuses to create one and says so), and it must be STRICT JSON — it checks
+  # with `jq empty` first and bails with a clear message on the comments and
+  # trailing commas that .jsonc otherwise allows. Hence builtins.toJSON rather
+  # than a hand-written file with comments in it.
+  #
+  # `logo` and `display` are deliberately absent: those are exactly the two
+  # objects the hook fills in.
+  fastfetchConfig = pkgs.writeText "fastfetch-config.jsonc" (builtins.toJSON {
+    "$schema" = "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json";
+    modules = [
+      "title"
+      "separator"
+      "os"
+      "host"
+      "kernel"
+      "uptime"
+      "packages"
+      "shell"
+      "de"
+      "wm"
+      "terminal"
+      "cpu"
+      "gpu"
+      "memory"
+      "swap"
+      "disk"
+      "localip"
+      "break"
+      "colors"
+    ];
+  });
+in {
   # ── Tools with a home-manager program module ──────────────────────────────
   # Using programs.* (rather than raw packages) gets us shell integration and
   # Stylix theming for free.
@@ -28,6 +66,27 @@
     defaultCommand = "fd --type f --hidden --exclude .git";
   };
 
+  # ── Colour handed to Noctalia ─────────────────────────────────────────────
+  # These three follow a palette switch at runtime instead of waiting for a
+  # rebuild; see theme.templates in ./noctalia.nix for the whole picture.
+  #
+  # Turning the target off is the entire mechanism, not just half of it. Each of
+  # these home-manager modules writes its config file only when its settings are
+  # non-empty — `xdg.configFile."bat/config" = mkIf (cfg.config != {})`,
+  # likewise btop's btop.conf — and Stylix was the only thing putting anything
+  # in them. Off, home-manager writes no file, the path stops being a read-only
+  # store symlink, and the template's hook can create and edit it. Leave one on
+  # and the hook dies on `touch: Permission denied` before it even reads the
+  # file.
+  #
+  # fzf is different in kind: it has no config file, and Stylix was setting
+  # programs.fzf.colors, which becomes --color flags in FZF_DEFAULT_OPTS. The
+  # template writes a fish snippet that sets the same variable, and ./fish.nix
+  # sources it; two owners of one variable is why this has to be off.
+  stylix.targets.bat.enable = false;
+  stylix.targets.btop.enable = false;
+  stylix.targets.fzf.enable = false;
+
   programs.zoxide = {
     enable = true;
     enableFishIntegration = true;
@@ -48,7 +107,10 @@
   home.packages = with pkgs; [
     # navigation / files
     eza # alternative listing to lsd, handy for `eza --tree`
-    yazi # TUI file manager
+    # TUI file manager. Stays a raw package rather than `programs.yazi` for the
+    # same reason as cava in ./apps.nix: Noctalia's template rewrites
+    # ~/.config/yazi/theme.toml, and the module would own that path.
+    yazi
 
     # system / inspection
     dust # disk usage (du replacement)
@@ -77,4 +139,25 @@
     enable = true;
     flake = "/home/${username}/nixos-config";
   };
+
+  # Seed fastfetch's config, but only when it is not already there.
+  #
+  # Same shape and the same reason as the ghostty theme seed in ./ghostty.nix:
+  # the file has to be a real writable copy, because Noctalia's hook rewrites it
+  # on every palette change, and `home.file` would make it a store symlink the
+  # hook cannot touch — literally, `touch` is its first statement.
+  #
+  # `-e` rather than `-f` so a symlink left by an older generation counts as
+  # present and is replaced deliberately rather than silently clobbered.
+  #
+  # The cost of seed-only-once is the usual one: editing fastfetchConfig above
+  # will NOT reach a machine that already has the file. Delete it and rebuild,
+  # or edit it in place — it is yours from the first activation onwards.
+  home.activation.fastfetchConfigSeed = lib.hm.dag.entryAfter ["writeBoundary"] ''
+    cfg="${config.xdg.configHome}/fastfetch/config.jsonc"
+    if [ ! -e "$cfg" ]; then
+      run mkdir -p $VERBOSE_ARG "$(dirname "$cfg")"
+      run install -m644 $VERBOSE_ARG ${fastfetchConfig} "$cfg"
+    fi
+  '';
 }

@@ -65,10 +65,24 @@
     };
   };
 
-  programs.lazygit.enable = true;
+  # lazygit as a raw package, and deliberately NOT programs.lazygit.
+  #
+  # Colour comes from Noctalia's template (see theme.templates in
+  # ./noctalia.nix) so it follows a palette switch at runtime. That template's
+  # hook splices a theme block into ~/.config/lazygit/config.yml, and turning
+  # the Stylix target off is not enough to free that path the way it is for bat
+  # and btop: home-manager's lazygit module writes config.yml unconditionally,
+  # settings or no settings, so the file would stay a read-only store symlink
+  # and the hook would abort on it.
+  #
+  # Nothing is lost by dropping the module — it only ever set `enable` here, and
+  # lazygit runs fine with no config at all until the hook writes one.
+  stylix.targets.lazygit.enable = false;
 
   programs.gh = {
     enable = true;
     settings.git_protocol = "ssh";
   };
+
+  home.packages = [pkgs.lazygit];
 }
