@@ -115,32 +115,60 @@ screen. `session.default` in `hosts/<host>/default.nix` still says `niri`.
 
 Noctalia itself needs no changes to follow: its unit is
 `WantedBy=graphical-session.target` rather than `niri.service`, and Noctalia v5
-talks to mango natively (workspaces and keyboard layout over `mango-ipc`, plus a
-`mango` colour template — so a palette switch in the GUI moves mango's borders
-live, which the niri session cannot do).
+talks to mango natively — workspaces and keyboard layout come over `mango-ipc`.
 
-What differs under mango, all of it deliberate:
+**The session config is a port of niri's, laid over upstream's text.**
+[`modules/home/mango.nix`](modules/home/mango.nix) reads mango's own
+`assets/config.conf` out of the locked flake input and keeps it verbatim, so
+everything this config has no opinion about — effects defaults, mouse bindings,
+gestures, scratchpad, dwindle knobs — moves with the flake instead of being
+restated here. Three edits to that text, then one local block appended after it:
+
+- every `bind…=` line is dropped and niri's table supplied below, because
+  keeping both sets would mean two ways to do everything (`mousebind`,
+  `axisbind` and `gesturebind` are deliberately left alone),
+- the nine tags move from master-stack to the `scroller` layout,
+- stock's *plain* middle click is unbound from `togglemaximizescreen` — a
+  matched mousebind is swallowed, so it cost middle-click-to-open-a-link and
+  middle-click paste everywhere.
+
+The local block adds monitor geometry and scaling from `hosts/<host>/local.nix`
+(without it DP-2 comes up at scale 1), `xkb_rules_layout=us,ru` routed through
+Noctalia rather than an xkb-level toggle, a polkit agent in `autostart.sh`
+(niri-flake's unit is `WantedBy=niri.service`, so nothing would answer a
+`pkexec` prompt here), and the bind table.
+
+**So the keys are niri's, not mango's** — `Mod`+`Return`, `Mod`+`Q`,
+`Mod`+`H`/`J`/`K`/`L`, `Mod`+`1`…`9`, `Mod`+`Shift`+`/` for a cheat sheet that
+stands in for niri's hotkey overlay. Eleven niri binds have no mango counterpart
+and are absent rather than rehomed onto something that half works; the list and
+the reason for each is in the file. `Mod`+`F` is the one that behaves
+differently by design: it toggles the column between half and full width instead
+of calling `togglemaximizescreen`, which pins the geometry and makes `Mod`+`R`
+misbehave. `Mod`+`Shift`+`F` is still real fullscreen.
+
+Colour is the other inversion worth knowing. niri's focus ring comes from Stylix
+and therefore only follows a palette change at the next rebuild; mango's borders
+come from Noctalia's `mango` template through `source=~/.config/mango/noctalia.conf`,
+so they follow it live. There is no `stylix.targets.mango` at all.
+
+Things that differ from the niri session regardless of config:
 
 | | niri | mango |
 |---|---|---|
-| Layout | scrollable columns | dwl tags; every tag starts on the `scroller` layout, `Mod`+`N` cycles |
-| Workspaces | dynamic, `Mod`+`1`…`5` | nine fixed tags, `Mod`+`1`…`9` |
+| Layout | scrollable columns | dwl tags, each on the `scroller` layout |
+| Workspaces | dynamic | nine fixed tags, compacted (`tag_gather`) |
 | Wallpaper | one copy in niri's overview backdrop (`place-within-backdrop`) | ordinary background layer — mango has no backdrop |
 | XWayland | `xwayland-satellite` | built in |
-| Polkit | `niri-flake-polkit.service` | same agent, started from mango's `autostart.sh` |
-| Screenshots | niri built-in | `noctalia msg screenshot-region` / `-fullscreen` |
 | Screencast portal | `xdg-desktop-portal-gnome` | `xdg-desktop-portal-wlr` |
-| Not ported | tabbed columns (`Mod`+`W`), hotkey overlay | — |
 
-Everything else — launchers, the Noctalia panel binds, media and brightness
-keys, monitor geometry and scaling — is the same on both, and the monitor layout
-is still described once in `hosts/<host>/local.nix`.
+[`modules/nixos/mango.nix`](modules/nixos/mango.nix) stays thin — the flake's own
+module handles the portals and the session entry. The one thing it adds is a
+screencast output chooser, because `xdg-desktop-portal-wlr` otherwise shells out
+to wofi/rofi/bemenu/mew/fuzzel and fails with `wlroots: no output found`.
 
-Config lives in [`modules/nixos/mango.nix`](modules/nixos/mango.nix) (thin: the
-flake's own module does the portals and the session entry) and
-[`modules/home/mango.nix`](modules/home/mango.nix) (the session proper). The
-generated `config.conf` is validated at build time with `mango -c … -p`, so a
-bad bind or an unknown key fails the rebuild rather than the login.
+The generated `config.conf` is validated at build time with `mango -c … -p`, so
+a bad bind or an unknown key fails the rebuild rather than the login.
 
 ## Reskin it
 
