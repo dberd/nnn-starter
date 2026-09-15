@@ -16,7 +16,7 @@ run one command, and get a cohesive, themed, developer-ready Wayland desktop.
 |--------------|--------|
 | Compositor   | [niri](https://github.com/YaLTeR/niri) (scrollable-tiling Wayland) via [niri-flake](https://github.com/sodiboo/niri-flake), with [MangoWC](https://github.com/mangowm/mango) offered as a second session |
 | Shell/UI     | [Noctalia](https://github.com/noctalia-dev/noctalia-shell) **v5** (bar, launcher, notifications, lock, control center) |
-| Theming      | [Stylix](https://github.com/nix-community/stylix) with the **Kanagawa** palette — one scheme themes everything |
+| Theming      | Noctalia's runtime templates for most apps, [Stylix](https://github.com/nix-community/stylix) for the rest — see [docs/theming.md](docs/theming.md) |
 | Terminal     | [Ghostty](https://ghostty.org) |
 | Shell + prompt | Zsh + [Starship](https://starship.rs) (autosuggestions, syntax highlighting, fzf, zoxide) |
 | Editor (GUI) | [Zed](https://zed.dev) — themed via Stylix; default handler for text/source files |
@@ -30,9 +30,13 @@ run one command, and get a cohesive, themed, developer-ready Wayland desktop.
 `lsd` · `fzf` · `bat` · `btop` · `ripgrep` · `fd` · `zoxide` · `eza` · `yazi` ·
 `dust` · `duf` · `procs` · `bandwhich` · `gping` · `zellij` ·
 `tealdeer` · `jq` · `yq` · `lazygit` · `delta` · `gh` · `direnv` + `nix-direnv` ·
-`nh` · `nom` · `claude` ([Claude Code](https://github.com/anthropics/claude-code)).
+`nh` · `nom` · `fastfetch` ·
+`claude` ([Claude Code](https://github.com/anthropics/claude-code)) ·
+`opencode` ([opencode](https://opencode.ai)).
 Old names are aliased to the new tools (`ls`→`lsd`, `cat`→`bat`,
-`cd`→`zoxide`, `top`→`btop`, …).
+`cd`→`zoxide`, `top`→`btop`, …). Both agentic CLIs are wrapped so their
+traffic goes through the proxy tunnel and is refused when it is down — see
+[docs/proxy.md](docs/proxy.md).
 
 ## Quick start
 
@@ -86,6 +90,7 @@ hosts/<host>/          # per machine: local.nix, hardware-configuration.nix, dis
 modules/nixos/         # system: boot, audio, niri, mango, noctalia, stylix, users…
 modules/home/          # user: fish, ghostty, neovim, niri/mango keybinds, cli tools…
 themes/kanagawa.yaml   # vendored base16 palette (Stylix source of truth)
+docs/                  # theming, proxy/VPN, dev environment, per-host installs
 ```
 
 ## Key bindings (niri)
@@ -102,6 +107,7 @@ themes/kanagawa.yaml   # vendored base16 palette (Stylix source of truth)
 | `Mod`+`Shift`+`H`/`J`/`K`/`L` | Move window |
 | `Mod`+`1`…`5` | Switch workspace |
 | `Mod`+`R` | Cycle column width |
+| `Mod`+`Shift`+`N` | Notes panel (Noctalia plugin) |
 | `Print` | Screenshot |
 | `Mod`+`Shift`+`/` | Hotkey overlay (full list) |
 | `Mod`+`Shift`+`E` | Quit niri |
@@ -170,9 +176,23 @@ to wofi/rofi/bemenu/mew/fuzzel and fails with `wlroots: no output found`.
 The generated `config.conf` is validated at build time with `mango -c … -p`, so
 a bad bind or an unknown key fails the rebuild rather than the login.
 
+For ideas not taken yet — scratchpads, per-tag rules, `force_tiled_state`, and
+the handful of configs worth reading for either compositor — see
+[docs/compositor-configs.md](docs/compositor-configs.md).
+
 ## Reskin it
 
-Everything is driven by one base16 file. Swap the palette and rebuild:
+Most of the desktop reskins **without a rebuild**: pick a wallpaper or a scheme
+in Noctalia's control centre and the bar, GTK, the terminal, mango's borders,
+bat, btop, lazygit, yazi, fzf, cava and the rest follow immediately. That is
+Noctalia rendering its templates at runtime into real files.
+
+The remainder is Stylix, which writes into `/nix/store` at build time and so
+only catches up on the next rebuild: fonts, the cursor, Qt/Kvantum, niri's
+focus ring and Zen's `userChrome`. Both derive from the same picture
+(`stylix.image`), so they agree until something is changed at runtime.
+
+To move the build-time half, swap the palette and rebuild:
 
 ```nix
 # modules/nixos/stylix.nix
@@ -180,6 +200,9 @@ stylix.base16Scheme = "${pkgs.base16-schemes}/share/themes/catppuccin-mocha.yaml
 ```
 
 …or edit `themes/kanagawa.yaml` directly.
+
+**[docs/theming.md](docs/theming.md)** has the full ownership table, the rule
+that decides which side can own a given app, and how to add another one.
 
 ## Per-project dev environments
 
