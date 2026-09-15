@@ -435,9 +435,6 @@ in {
       #              note in ./niri.nix.
       #   starship — writes through the symlink, and the prompt is hand-written
       #              against palette names in ./starship.nix anyway.
-      #   zen-browser — rewrites userChrome.css/userContent.css/user.js in each
-      #              profile, which are exactly the files Stylix's zen target
-      #              writes as store symlinks (./apps.nix).
       #   papirus-icons — does not work on NixOS at all: its hook reads
       #              /usr/share/icons/$variant, finds nothing, and skips every
       #              variant. Fixing it needs a user template of our own
@@ -496,6 +493,17 @@ in {
       #   hook APPENDS a line unless it is already there, so the ghostty trick
       #   applies — put the line in declaratively and the hook finds its work
       #   done and skips the write:
+      #     zen-browser         -> ./apps.nix, where the Stylix target had to go
+      #                            so the profile's userChrome.css,
+      #                            userContent.css and user.js stop being store
+      #                            symlinks. The generated CSS itself lives in
+      #                            ~/.cache; only an `@import` of it is
+      #                            prepended to the profile. Two template
+      #                            entries share one apply.sh and the
+      #                            `hook_async = false` meant to serialise them
+      #                            is not implemented in this version, so a race
+      #                            can leave a duplicate import — the next apply
+      #                            cleans it up, the sed deletes old lines first.
       #     neovim              -> ./neovim.nix carries the exact string the
       #                            hook greps for, `pcall(require, 'matugen')`.
       #                            Renders lua/matugen.lua, a directory
@@ -513,6 +521,7 @@ in {
         "obs"
         "opencode"
         "ungoogled-chromium"
+        "zen-browser"
         "neovim"
         "yazi"
         "zellij"

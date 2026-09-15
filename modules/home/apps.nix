@@ -152,11 +152,33 @@ in {
     ];
   };
 
-  # Paint Zen's chrome + about:/newtab pages with the same Kanagawa base16
-  # palette Stylix uses everywhere else. The target writes userChrome.css and
-  # userContent.css into the named profile and flips on the
-  # `toolkit.legacyUserProfileCustomizations.stylesheets` pref for us.
-  stylix.targets.zen-browser.profileNames = ["default"];
+  # Zen's chrome is Noctalia's, not Stylix's — so it follows a palette switch
+  # live, like the rest (theme.templates in ./noctalia.nix).
+  #
+  # The template is better built than most: the generated CSS goes to
+  # ~/.cache/noctalia/zen-browser/, and the hook only PREPENDS an `@import` of
+  # it to the profile's userChrome.css / userContent.css, plus two prefs in
+  # user.js. Small edits — but still `cat > file` edits, so those three files
+  # cannot be home-manager's. Switching this target off is what releases them:
+  # it was the only thing setting profiles.default.{userChrome,userContent,
+  # settings}, and the firefox module writes each file only when its option is
+  # non-empty.
+  #
+  # What that costs, precisely, since the target set seven prefs:
+  #   - three font prefs — nothing. They named JetBrainsMono Nerd Font, Noto
+  #     Sans and Noto Serif, which is exactly what fontconfig already resolves
+  #     to (modules/nixos/fonts.nix), so Zen lands on the same three anyway.
+  #   - toolkit.legacyUserProfileCustomizations.stylesheets — nothing. The hook
+  #     writes that one into user.js itself, along with devtools.chrome.enabled.
+  #   - five reader.custom_colors.* prefs — THIS is the real loss. Reader mode
+  #     goes back to Zen's built-in light/dark/sepia instead of the Kanagawa
+  #     custom scheme. There is no way to keep them: putting anything in
+  #     `settings` makes home-manager write user.js as a store symlink, and the
+  #     hook's `touch` on it fails before it does anything else.
+  #
+  # The hook finds profiles by looking for prefs.js two levels under
+  # ~/.config/zen, so it does nothing until Zen has been run once.
+  stylix.targets.zen-browser.enable = false;
 
   # Helium — Blink-based second main browser. Not in nixpkgs (upstream ships
   # only a .deb); the community flake wraps that same .deb, same trust level

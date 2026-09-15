@@ -76,6 +76,7 @@ only one that actively replaces a read-only symlink with a real file.
 | `obs` | `~/.config/obs-studio/themes/matugen.obt` | nothing — pick it once in OBS's UI |
 | `heroiclauncher` | `~/.config/heroic/themes/matugen.css` | nothing — pick it once in Heroic's UI |
 | `ungoogled-chromium` | `~/.cache/noctalia/ungoogled-chromium/theme/` | `stylix.targets.chromium` off **at the NixOS level** (see below); then one **Load unpacked** at `chrome://extensions` |
+| `zen-browser` | `~/.cache/noctalia/zen-browser/*.css`, plus an `@import` in the profile | `stylix.targets.zen-browser` off, which releases the profile's `chrome/user{Chrome,Content}.css` and `user.js`. Costs the reader-mode custom colours — see below |
 
 ### Stylix — needs a rebuild to follow
 
@@ -85,7 +86,6 @@ only one that actively replaces a read-only symlink with a real file.
 | cursor theme | same |
 | Qt / Kvantum | the `qt` template has **no `post_hook`**, so the `qt{5,6}ct/colors/noctalia.conf` it writes is never selected; and there is no Kvantum template in either catalogue |
 | niri focus ring | the `niri` template needs `include "noctalia.kdl"`, which niri-stable 25.08 rejects: `unexpected node 'include'` |
-| zen `userChrome.css` | the template rewrites the same files Stylix's zen target writes as store symlinks |
 | starship, fish | hand-written against palette names |
 
 `papirus-icons` is in neither column: its hook reads `/usr/share/icons/$variant`,
@@ -123,6 +123,20 @@ New sessions get the new palette immediately; an open one needs restarting.
 It is also the one app here whose Stylix target was *already* doing nothing:
 `stylix.targets.zellij` writes `themes/stylix.kdl` but never sets `theme`, so
 nothing ever selected it and zellij had been running unthemed all along.
+
+**Zen keeps its chrome, loses its reader mode.** The Stylix target set seven
+prefs on the profile. Three named fonts that `fonts.nix` already makes
+fontconfig resolve to, so dropping them changes nothing; one was
+`toolkit.legacyUserProfileCustomizations.stylesheets`, which the hook writes into
+`user.js` itself. The other five were `reader.custom_colors.*`, and those are
+simply gone — reader mode falls back to Zen's built-in light/dark/sepia. They
+cannot be kept: anything left in `profiles.<n>.settings` makes home-manager write
+`user.js` as a store symlink, and the hook's `touch` on it fails before it does
+anything else. Note also that the hook finds profiles by looking for `prefs.js`
+two levels under `~/.config/zen`, so it is inert until Zen has been run once, and
+that its two template entries share one `apply.sh` with the `hook_async = false`
+meant to serialise them unimplemented in this version — a race can leave a
+duplicate `@import`, which the next apply cleans up.
 
 **Stylix targets exist in two scopes, and they are different lists.** Most are
 home-manager targets, reachable as `stylix.targets.<name>` from a module under
