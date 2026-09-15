@@ -15,6 +15,7 @@
     ./direnv.nix
     ./dev.nix
     ./claude-code.nix
+    ./opencode.nix
     ./apps.nix
     ./media.nix
     ./vscodium.nix

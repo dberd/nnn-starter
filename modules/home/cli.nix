@@ -57,6 +57,7 @@
     bandwhich # per-process bandwidth
     gping # ping with a graph
     traceroute
+    fastfetch # system summary (neofetch's successor)
     less # explicit: bat replaces `cat`, but pagers still shell out to less
 
     # data / misc

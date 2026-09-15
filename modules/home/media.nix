@@ -16,6 +16,20 @@
     };
   };
 
+  # OBS Studio: screen recording and streaming, the one thing this config had
+  # no tool for at all — grim/slurp (modules/nixos/desktop.nix) take stills and
+  # nothing took video.
+  #
+  # It needs no per-compositor setup here: capture goes through the ScreenCast
+  # portal, which both sessions already provide (xdg-desktop-portal-gnome under
+  # niri, xdg-desktop-portal-wlr under mango — see modules/nixos/mango.nix for
+  # the output chooser that one needs). In OBS the source is "Screen Capture
+  # (PipeWire)"; X11 capture will not work and is not supposed to.
+  #
+  # Deliberately no `plugins`: the module can install them, but every one is a
+  # rebuild, and nothing here needs one yet.
+  programs.obs-studio.enable = true;
+
   # Make them the default handlers. mime.nix already sets `xdg.mimeApps.enable`
   # and claims the text/* types; these attrsets merge across modules, so we only
   # add the image/audio/video associations here (don't re-set `enable`, which
