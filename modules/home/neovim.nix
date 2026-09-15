@@ -1,7 +1,12 @@
 {pkgs, ...}: {
-  # Let the official kanagawa.nvim plugin own neovim's colors instead of
-  # Stylix's base16 approximation (which paints fields/identifiers samuraiRed).
-  # Same palette, but with treesitter-aware, fine-grained highlights.
+  # Off since before Noctalia was in the picture — Stylix's base16 approximation
+  # painted fields and identifiers samuraiRed, and kanagawa.nvim gave the same
+  # palette with treesitter-aware highlights instead.
+  #
+  # It now stays off for the newer reason as well: colour comes from Noctalia's
+  # neovim template, so it follows a palette switch at runtime rather than
+  # waiting for a rebuild. kanagawa is kept as the fallback. See the Colorscheme
+  # block in initLua.
   stylix.targets.neovim.enable = false;
 
   programs.neovim = {
@@ -35,7 +40,12 @@
     ];
 
     plugins = with pkgs.vimPlugins; [
-      # Colorscheme (official kanagawa.nvim, same author as our base16 scheme).
+      # Colour, in two layers. base16-nvim is the one that actually paints when
+      # Noctalia has been here: its module is `base16-colorscheme`, which is
+      # exactly what the generated lua/matugen.lua calls. kanagawa.nvim stays as
+      # the fallback for a machine where that file does not exist yet — see the
+      # Colorscheme block in initLua below.
+      base16-nvim
       kanagawa-nvim
 
       # Treesitter grammars precompiled by Nix (no runtime :TSInstall needed).
@@ -71,8 +81,30 @@
       vim.g.maplocalleader = " "
 
       -- ── Colorscheme ───────────────────────────────────────────────────────
-      require("kanagawa").setup()
-      vim.cmd.colorscheme("kanagawa")
+      -- Noctalia renders ~/.config/nvim/lua/matugen.lua from the live palette
+      -- (see theme.templates in ../noctalia.nix). That module drives
+      -- base16-nvim AND installs a SIGUSR1 handler that re-reads itself, which
+      -- is why the template's hook ends in `pkill -SIGUSR1 nvim`: an editor
+      -- that is already open repaints on a palette switch, without restarting.
+      --
+      -- The `pcall(require, 'matugen')` spelling is load-bearing in a second
+      -- way. That hook greps init.lua for exactly this string and APPENDS the
+      -- two lines itself when it is missing — into a file that is a /nix/store
+      -- symlink here, which would fail and abort the hook under `set -e`.
+      -- Because the line is already here, the grep matches, the append is
+      -- skipped, and all the hook does is signal nvim. Same arrangement as
+      -- `theme = "noctalia"` in ../ghostty.nix.
+      --
+      -- kanagawa is the fallback, not dead weight: on a machine where Noctalia
+      -- has never applied its templates the require fails and there would
+      -- otherwise be no colorscheme at all.
+      local ok, matugen = pcall(require, 'matugen')
+      if ok then
+        matugen.setup()
+      else
+        require("kanagawa").setup()
+        vim.cmd.colorscheme("kanagawa")
+      end
 
       local o = vim.opt
       o.number = true

@@ -435,8 +435,6 @@ in {
       #              note in ./niri.nix.
       #   starship — writes through the symlink, and the prompt is hand-written
       #              against palette names in ./starship.nix anyway.
-      #   neovim   — appends to init.lua, a store symlink. kanagawa-nvim owns the
-      #              colours (./neovim.nix).
       #   zen-browser — rewrites userChrome.css/userContent.css/user.js in each
       #              profile, which are exactly the files Stylix's zen target
       #              writes as store symlinks (./apps.nix).
@@ -494,6 +492,18 @@ in {
       #                            this hook refuses to create one, and insists
       #                            it be strict JSON (it jq-merges into it, and
       #                            says so loudly if it finds JSONC comments).
+      #
+      #   hook APPENDS a line unless it is already there, so the ghostty trick
+      #   applies — put the line in declaratively and the hook finds its work
+      #   done and skips the write:
+      #     neovim              -> ./neovim.nix carries the exact string the
+      #                            hook greps for, `pcall(require, 'matugen')`.
+      #                            Renders lua/matugen.lua, a directory
+      #                            home-manager does not touch (it owns only
+      #                            init.lua). The one template here that
+      #                            repaints a RUNNING app on its own: the
+      #                            generated module installs a SIGUSR1 handler
+      #                            and the hook ends in `pkill -SIGUSR1 nvim`.
       theme.templates.community_ids = [
         "bat"
         "fastfetch"
@@ -503,6 +513,7 @@ in {
         "obs"
         "opencode"
         "ungoogled-chromium"
+        "neovim"
         "yazi"
         "zellij"
       ];

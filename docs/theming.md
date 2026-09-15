@@ -71,6 +71,7 @@ only one that actively replaces a read-only symlink with a real file.
 | `fastfetch` | `~/.config/fastfetch/config.jsonc` | raw package + an activation **seed**, see below |
 | `fzf` | `~/.config/fzf/themes/noctalia.fish` | `stylix.targets.fzf` off; sourced in `fish.nix` |
 | `zellij` | `~/.config/zellij/themes/noctalia.kdl` | `stylix.targets.zellij` off; `settings.theme = "noctalia"` selects it. **New sessions only** — see below |
+| `neovim` | `~/.config/nvim/lua/matugen.lua` | `base16-nvim` added; `initLua` carries the exact `pcall(require, 'matugen')` the hook greps for, so its append is skipped. **Repaints a running editor** — the module installs a SIGUSR1 handler and the hook signals nvim |
 | `opencode` | `~/.config/opencode/themes/matugen.json` | `stylix.targets.opencode` off; `tui.theme = "matugen"` |
 | `obs` | `~/.config/obs-studio/themes/matugen.obt` | nothing — pick it once in OBS's UI |
 | `heroiclauncher` | `~/.config/heroic/themes/matugen.css` | nothing — pick it once in Heroic's UI |
@@ -85,7 +86,6 @@ only one that actively replaces a read-only symlink with a real file.
 | Qt / Kvantum | the `qt` template has **no `post_hook`**, so the `qt{5,6}ct/colors/noctalia.conf` it writes is never selected; and there is no Kvantum template in either catalogue |
 | niri focus ring | the `niri` template needs `include "noctalia.kdl"`, which niri-stable 25.08 rejects: `unexpected node 'include'` |
 | zen `userChrome.css` | the template rewrites the same files Stylix's zen target writes as store symlinks |
-| neovim | `kanagawa-nvim` owns the colours; the template appends to `init.lua`, a store symlink |
 | starship, fish | hand-written against palette names |
 
 `papirus-icons` is in neither column: its hook reads `/usr/share/icons/$variant`,
