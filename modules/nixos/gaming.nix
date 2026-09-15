@@ -152,6 +152,42 @@ in {
   # that import this module; the ThinkPad does not.
   users.users.${username}.extraGroups = ["gamemode"];
 
+  # The 8BitDo Ultimate 2.4G arrives through its dongle as 2dc8:3106, and the
+  # kernel's xpad driver claims it as an Xbox 360 pad — so both triggers are
+  # published as 0..255 axes: LT is ABS_Z, RT is ABS_RZ.
+  #
+  # This pad's right trigger does not cover that range. Measured with evtest
+  # across 15 full presses it tops out at 155-160, while the left one reaches
+  # the end of the scale:
+  #
+  #   ABS_Z  (LT) -> 255   (100%)
+  #   ABS_RZ (RT) -> ~156  (61%)
+  #
+  # A five-count spread over fifteen presses is a hard ceiling, not a soft
+  # press. Titles that treat the trigger as a button never notice, but anything
+  # gated on a value near the top of the range cannot be reached at all — full
+  # sail on the ship in AC: Black Flag is the symptom that found this.
+  #
+  # xpad has no calibration of its own: its only parameters are dpad_to_buttons,
+  # triggers_to_buttons, sticks_to_null and auto_poweroff, and none apply here
+  # (triggers_to_buttons would discard the analog range outright, and it only
+  # touches pads missing from xpad's device table anyway). The supported knob is
+  # EVIOCSABS, which systemd drives from hwdb. EVDEV_ABS_05 is ABS_RZ; the
+  # fields are min:max:res:fuzz:flat.
+  #
+  # The max is declared as the LOWEST peak measured rather than the highest, so
+  # that every full press saturates: SDL and Wine both clamp to the declared
+  # maximum, which puts all of the 155-160 readings on 100%. Wine reads the pad
+  # through winebus' evdev backend and normalises against the same absinfo, so
+  # this reaches Lutris titles too.
+  #
+  # ABS_Z is deliberately left alone — the left trigger is healthy, and
+  # rescaling it would only make it saturate early.
+  services.udev.extraHwdb = ''
+    evdev:input:b0003v2DC8p3106*
+      EVDEV_ABS_05=0:155:0:0:0
+  '';
+
   # Legcord 1.2.4 registered its `legcord://` scheme with `corsEnabled: false`,
   # which blocked shelter's fetch of legcord://plugins/*/plugin.json from the
   # https://discord.com origin, so none of the bundled shelter plugins installed
