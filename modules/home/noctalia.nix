@@ -132,8 +132,13 @@ in {
         # while `source` stays "wallpaper": they are read only when source is
         # "builtin" or "community" respectively. Recorded so the picks survive,
         # and so trying either is a one-word change to `source` above.
-        builtin = "Dracula";
-        community_palette = "One";
+        #
+        # These two are the ones most likely to be out of date: browsing
+        # palettes writes them to ~/.local/state on every click, and nothing
+        # makes it obvious the repo has fallen behind. Read the current pair
+        # back out with `noctalia config export merged` before assuming.
+        builtin = "Catppuccin";
+        community_palette = "Kanagawa Kasumi";
       };
 
       location.address = "Moscow, Russia";
@@ -422,11 +427,34 @@ in {
         timeout = 600;
       };
 
-      # Plugins. This list only says which ones are *on* — the code itself is
-      # git-cloned by Noctalia's own plugin manager into
-      # ~/.local/state/noctalia/plugins, outside Nix's hands. So on a fresh
-      # machine the shell has to fetch them once before `notes` and `wallhaven`
-      # resolve to anything; bitwarden has no bar widget and shows up as a
+      # Where the plugin CODE comes from. Left alone, Noctalia declares two
+      # sources of its own — `official` and `community`, both `kind = "git"` —
+      # and clones them into ~/.local/state/noctalia/plugins/sources at first
+      # run. That put the code outside Nix and outside the lock: on a fresh
+      # machine the `notes` and `wallhaven` slots in the bar were silently
+      # dropped until the clone landed, and the version in use was whatever
+      # main happened to be that day.
+      #
+      # `kind = "path"` is the mode upstream added for exactly this — its own
+      # comment (config_types.h) calls it "an immutable local directory (e.g. a
+      # Nix store path) the host treats read-only", and update/auto-update/
+      # remove become no-ops against it. Reusing the name `official` replaces
+      # the built-in git source of that name rather than adding a second one
+      # alongside it.
+      #
+      # This pins the first-party tree only. `community` keeps its git source,
+      # since nothing here enables a plugin from it.
+      plugins.source = [
+        {
+          name = "official";
+          kind = "path";
+          location = "${inputs.noctalia-plugins}";
+        }
+      ];
+
+      # …and which of them are on. Discovery and loading are separate: a plugin
+      # present in the source above is listed in the settings UI but never runs
+      # until its id appears here. bitwarden has no bar widget and shows up as a
       # launcher provider instead.
       plugins.enabled = [
         "noctalia/wallhaven"
@@ -434,25 +462,76 @@ in {
         "noctalia/bitwarden"
       ];
 
+      # Per-plugin settings. Deliberately NOT nested under `plugins` — plugin
+      # ids contain a slash, so upstream keeps this as its own top-level table
+      # rather than a subtable of one whose keys would then have to be quoted
+      # paths.
+      #
+      # Two kinds of key live here. The plugin's own, declared in its
+      # plugin.toml ([[setting]] blocks): notes has `notes_dir` and `extension`.
+      # And the panel keys the host injects for every [[panel]] a plugin
+      # declares, named "<entry-id>_<suffix>" — the notes panel's entry id is
+      # literally "panel", hence `panel_position`.
+      #
+      # `panel_placement` is absent on purpose. The manifest declares
+      # `height = "fill"`, and that is only legal for a floating panel, so
+      # asking for "attached" here is rejected rather than honoured. Floating
+      # is what is wanted anyway: this is a full-height side sheet, not
+      # something hung under a bar widget.
+      #
+      # Note also what this CANNOT do: every Noctalia panel is a layer-shell
+      # surface inside the shell process, so there is no setting that turns the
+      # notepad into an ordinary window. "floating" means centred/anchored on
+      # the output, not an XDG toplevel.
+      #
+      # `noctalia config validate` warns "no loaded plugin with this id" when it
+      # checks this in the build sandbox, which has no plugin tree to read the
+      # manifest from. Harmless — it is a warning, and the config still passes.
+      plugin_settings."noctalia/notes" = {
+        notes_dir = "/home/${username}/Documents/Notes";
+        extension = "md";
+        panel_position = "center_right";
+      };
+
       # Panels (launcher, clipboard, control center, session, wallpaper, polkit).
       #
       # "attached" hangs the panel off the bar under the widget that opened it,
-      # instead of "floating" it in the middle of the screen; open_near_click
-      # then puts it under the pointer rather than centred on the bar item, which
-      # matters on a 2560px-wide monitor where the two can be half a screen
-      # apart. `floating_layer = "top"` drops the still-floating panels out of
-      # the overlay layer so they sit under, not over, the lock screen.
+      # instead of "floating" it in the middle of the screen. `floating_layer =
+      # "top"` drops the still-floating panels out of the overlay layer so they
+      # sit under, not over, the lock screen.
+      #
+      # `open_near_click` was meant to put an attached panel under the pointer
+      # rather than centred on the bar item it belongs to, on the theory that on
+      # a 2560px-wide monitor the two can be half a screen apart. In use it
+      # reads as the panel moving about: the same key opens it in a different
+      # place each time, depending on where the mouse happened to be. All five
+      # are off — which is also what they had been set back to in the control
+      # center, and this is the repo catching up.
+      #
+      # `launcher_position` only applies to a FLOATING launcher; "auto" keeps
+      # the bar-relative placement, and it is here because the control center
+      # writes the key whether or not it is reachable.
       shell.panel = {
         launcher_placement = "attached";
         clipboard_placement = "attached";
         polkit_placement = "attached";
         floating_layer = "top";
-        open_near_click_launcher = true;
-        open_near_click_clipboard = true;
-        open_near_click_control_center = true;
-        open_near_click_session = true;
-        open_near_click_wallpaper = true;
+        launcher_position = "auto";
+        open_near_click_launcher = false;
+        open_near_click_clipboard = false;
+        open_near_click_control_center = false;
+        open_near_click_session = false;
+        open_near_click_wallpaper = false;
       };
+
+      # Launcher: do not pre-fill the search box from the clipboard. The
+      # alternatives are "always" and "smart"; both mean opening the launcher to
+      # type a command and finding whatever was last copied already in the box.
+      shell.launcher.auto_paste = "off";
+
+      # The wireless mouse (Logitech HID++) warns at 10% rather than the
+      # default. Keyed by UPower device path, which is stable for this dongle.
+      battery.device."/org/freedesktop/UPower/devices/battery_hidpp_battery_0".warning_threshold = 10;
 
       # Show the public IP in the network panel. Costs a lookup against an
       # external service whenever the panel opens — which is also what makes it
@@ -464,8 +543,11 @@ in {
       # instead of a picker you have to leave before launching anything.
       shell.niri_overview_type_to_launch_enabled = true;
 
-      # UI sounds (volume steps, notifications, screenshots). Off by default.
-      audio.enable_sounds = true;
+      # UI sounds (volume steps, notifications, screenshots). Off by default,
+      # turned on here once, and then turned back off in the control center —
+      # a click on every volume step gets old fast. Recorded at the value that
+      # is actually in use rather than the one that was once aspired to.
+      audio.enable_sounds = false;
 
       # Notification history keeps 4 hours. The default is 0 — unlimited, not
       # none — so the list grew forever.

@@ -42,6 +42,24 @@
     # Left to bring its own nixpkgs, for the same cache reason as niri/noctalia.
     noctalia-greeter.url = "github:noctalia-dev/noctalia-greeter";
 
+    # Noctalia's first-party plugin tree (notes, wallhaven, bitwarden and the
+    # rest), one directory per plugin with a plugin.toml inside.
+    #
+    # Left to Noctalia itself, the shell git-clones this into
+    # ~/.local/state/noctalia/plugins at first run, which puts the code outside
+    # Nix and outside the lock: a fresh machine comes up with the bar slots for
+    # `notes` and `wallhaven` silently dropped until the clone lands, and the
+    # version in use is whatever main happened to be that day. Pinning it here
+    # and pointing a path-kind plugin source at the store path (see
+    # plugins.source in modules/home/noctalia.nix) makes both reproducible.
+    #
+    # Not a flake — a plain tree of .luau and .toml, hence flake = false. It
+    # builds nothing, so there is no nixpkgs to follow.
+    noctalia-plugins = {
+      url = "github:noctalia-dev/official-plugins";
+      flake = false;
+    };
+
     # Secrets: encrypted in-repo, decrypted at activation (secrets/, .sops.yaml).
     sops-nix = {
       url = "github:Mic92/sops-nix";
