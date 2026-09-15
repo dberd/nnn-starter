@@ -470,6 +470,10 @@ in {
       #   no hook at all, writes only into its own theme directory — nothing to
       #   arrange beyond pointing the app at the theme:
       #     fzf                 -> themes/noctalia.fish, sourced in ./fish.nix
+      #     zellij              -> themes/noctalia.kdl, selected by
+      #                            settings.theme in ./cli.nix. The one here
+      #                            that does not repaint a RUNNING instance:
+      #                            zellij watches config.kdl, not the theme file.
       #     opencode            -> themes/matugen.json, selected in ./opencode.nix
       #     obs                 -> themes/matugen.obt, picked once in OBS's UI
       #     heroiclauncher      -> themes/matugen.css, picked once in Heroic's UI.
@@ -500,6 +504,7 @@ in {
         "opencode"
         "ungoogled-chromium"
         "yazi"
+        "zellij"
       ];
 
       # Lock on idle. Noctalia has this built in — it was simply disabled, so no

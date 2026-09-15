@@ -57,8 +57,39 @@ in {
   programs.btop.enable = true;
   programs.ripgrep.enable = true;
   programs.fd.enable = true;
-  programs.zellij.enable = true;
   programs.jq.enable = true;
+
+  # zellij, themed by Noctalia. This is the easy shape of template: it has no
+  # apply.sh at all, so it only renders ~/.config/zellij/themes/noctalia.kdl and
+  # never touches config.kdl. That means config.kdl can stay home-manager's —
+  # all we owe the template is the one line that selects its theme, the same
+  # deal as `theme = "noctalia"` in ./ghostty.nix.
+  #
+  # Setting `settings` at all is what makes home-manager start writing
+  # config.kdl. Two consequences worth knowing:
+  #
+  #   - the 22 KB config.kdl zellij dumped for itself gets moved aside to
+  #     config.kdl.hm-bak on the next activation (backupFileExtension in
+  #     flake.nix). Nothing is lost: every `theme` line in it is commented out
+  #     and the rest is zellij's own defaults, which it applies anyway.
+  #   - zellij customisation now goes through here rather than that file.
+  #
+  # Honest limit: a RUNNING zellij will not repaint on a palette switch. It
+  # watches config.kdl, and what changes is themes/noctalia.kdl. The template
+  # ships a `touch config.kdl` post_hook for exactly this and upstream has it
+  # commented out — and it could not work here anyway, config.kdl being a store
+  # symlink. New sessions pick the new palette up immediately, which is still a
+  # rebuild less than Stylix needed.
+  programs.zellij = {
+    enable = true;
+    settings.theme = "noctalia";
+  };
+
+  # Off, and it was never doing anything in the first place: this target writes
+  # themes/stylix.kdl but does not set `theme`, so nothing ever selected it —
+  # zellij has been running unthemed. Now the file would also sit next to
+  # noctalia.kdl as a decoy.
+  stylix.targets.zellij.enable = false;
 
   programs.fzf = {
     enable = true;

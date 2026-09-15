@@ -70,6 +70,7 @@ only one that actively replaces a read-only symlink with a real file.
 | `yazi` | `~/.config/yazi/theme.toml` | stays a raw package in `cli.nix` |
 | `fastfetch` | `~/.config/fastfetch/config.jsonc` | raw package + an activation **seed**, see below |
 | `fzf` | `~/.config/fzf/themes/noctalia.fish` | `stylix.targets.fzf` off; sourced in `fish.nix` |
+| `zellij` | `~/.config/zellij/themes/noctalia.kdl` | `stylix.targets.zellij` off; `settings.theme = "noctalia"` selects it. **New sessions only** — see below |
 | `opencode` | `~/.config/opencode/themes/matugen.json` | `stylix.targets.opencode` off; `tui.theme = "matugen"` |
 | `obs` | `~/.config/obs-studio/themes/matugen.obt` | nothing — pick it once in OBS's UI |
 | `heroiclauncher` | `~/.config/heroic/themes/matugen.css` | nothing — pick it once in Heroic's UI |
@@ -113,6 +114,15 @@ or trailing commas that `.jsonc` otherwise allows. Hence the seed in `cli.nix`,
 written with `builtins.toJSON` and installed as a real writable file only when
 absent. Editing the Nix source will **not** reach a machine that already has the
 file; delete it and rebuild, or edit it in place.
+
+**zellij does not repaint a running session.** It watches `config.kdl`, and what
+a palette switch changes is `themes/noctalia.kdl`. The template ships a
+`touch config.kdl` post_hook for exactly this, commented out upstream — and it
+could not work here anyway, since `config.kdl` is a home-manager store symlink.
+New sessions get the new palette immediately; an open one needs restarting.
+It is also the one app here whose Stylix target was *already* doing nothing:
+`stylix.targets.zellij` writes `themes/stylix.kdl` but never sets `theme`, so
+nothing ever selected it and zellij had been running unthemed all along.
 
 **fzf's snippet appends to a universal variable.** It ends with
 `set -Ux FZF_DEFAULT_OPTS "$FZF_DEFAULT_OPTS\n<theme opts>"`, and universals
