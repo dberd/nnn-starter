@@ -98,6 +98,28 @@ set -gx NPM_TOKEN <base64 login:password из Committees/frontend/.npmrc>
 Между собой контейнеры общаются по именам, приложения с хоста — через `localhost`.
 Дампы для наполнения баз лежат в `~/Work/Dumps`.
 
+### DBeaver и дампы
+
+Backup/Restore в DBeaver идёт не по JDBC, а внешними `pg_dump`/`pg_restore`, поэтому ему
+нужен «native client home» — каталог, внутри которого лежит `bin/pg_restore`. Ищет он его
+в `/usr/lib/postgresql/<версия>` и прочих FHS-путях, которых здесь нет, и restore
+custom-дампа останавливается на «Local client is not specified for connection».
+
+`modules/home/dev.nix` кладёт стабильный симлинк на тот же `postgresql_18`, что стоит в
+PATH: `~/.local/share/dbeaver/postgresql-18`. Прямо на `/nix/store` указывать нельзя —
+путь меняется с каждым обновлением, настройка молча протухнет.
+
+Один раз на соединение: **Edit Connection → Main → Local Client → Browse…** и выбрать
+`~/.local/share/dbeaver/postgresql-18`. Выбор сохраняется в `data-sources.json` рабочего
+пространства DBeaver (файл мутабельный, не под git).
+
+То же самое из терминала, когда мастер не нужен:
+
+```sh
+PGPASSWORD=1234 pg_restore -h localhost -p 5432 -U postgres \
+  -d <база> --clean --if-exists --no-owner ~/Work/Dumps/<файл>.backup
+```
+
 ## Порты бэкендов и две коллизии
 
 `applicationUrl` из `launchSettings.json`:

@@ -15,6 +15,11 @@
     sdk_6_0
     aspnetcore_7_0
   ]);
+
+  # psql/pg_dump/pg_restore matching the container in ./files/docker-dev.yml.
+  # Named here because it is needed twice: on PATH, and as DBeaver's native
+  # client home below.
+  postgresql = pkgs.postgresql_18;
 in {
   # Development tooling that is genuinely wanted on every host. Language
   # toolchains that a single project pins stay OUT of the global environment —
@@ -29,7 +34,7 @@ in {
 
     # ── Databases ───────────────────────────────────────────────────────────
     dbeaver-bin
-    postgresql_18 # psql/pg_dump matching the container in ./files/docker-dev.yml
+    postgresql
 
     # ── Runtimes ────────────────────────────────────────────────────────────
     nodejs # current LTS: the default for anything without an .nvmrc
@@ -74,4 +79,14 @@ in {
   # `docker compose -f ~/docker/docker-dev.yml up -d` keeps working.
   # Credentials in it are local-only defaults.
   home.file."docker/docker-dev.yml".source = ./files/docker-dev.yml;
+
+  # DBeaver runs Backup/Restore through the native client (pg_dump/pg_restore),
+  # not over JDBC, so it needs a directory with bin/pg_restore inside. It looks
+  # for one in /usr/lib/postgresql/<ver> and the other FHS paths, finds nothing
+  # here, and the restore wizard stops with "Local client is not specified for
+  # connection". Pointing it straight at /nix/store would go stale on the next
+  # update; this symlink is a stable home that nix re-points at the current
+  # build. Set it once per connection:
+  #   Edit Connection → Main → Local Client → ~/.local/share/dbeaver/postgresql-18
+  home.file.".local/share/dbeaver/postgresql-18".source = postgresql;
 }
