@@ -1,9 +1,28 @@
 {
   config,
+  lib,
   pkgs,
   inputs,
   ...
-}: {
+}: let
+  # cava's Noctalia hook is the strictest of the set — it does not warn and
+  # carry on, it exits 1:
+  #
+  #   if [ ! -f "$config_file" ]; then
+  #       echo "Error: cava config file not found …" >&2; exit 1
+  #   fi
+  #
+  # cava writes a config of its own on first run, so this machine happens to
+  # have one; a fresh install would not, and the failure would show up only as
+  # a non-zero hook in the journal. Seeding it removes the ordering dependency.
+  #
+  # The hook wants a `[color]` section with a `theme` key in it, which is
+  # exactly what this is. cava defaults everything else.
+  cavaConfig = pkgs.writeText "cava-config" ''
+    [color]
+    theme = "noctalia"
+  '';
+in {
   imports = [
     inputs.zen-browser.homeModules.beta
     inputs.helium-browser.homeModules.default
@@ -166,4 +185,14 @@
     # depending on a fix upstream.
     settings.Keywords = "ekp;dialog;efko;екп;диалог;";
   };
+
+  # Seed cava's config if it is not there — see the cavaConfig binding at the
+  # top. Only-if-absent, so the 12 KB one cava wrote for itself is left alone.
+  home.activation.cavaConfigSeed = lib.hm.dag.entryAfter ["linkGeneration"] ''
+    cfg="${config.xdg.configHome}/cava/config"
+    if [ ! -e "$cfg" ]; then
+      run mkdir -p $VERBOSE_ARG "$(dirname "$cfg")"
+      run install -m644 $VERBOSE_ARG ${cavaConfig} "$cfg"
+    fi
+  '';
 }

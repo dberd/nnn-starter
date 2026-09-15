@@ -16,6 +16,25 @@
   #
   # `logo` and `display` are deliberately absent: those are exactly the two
   # objects the hook fills in.
+  # btop's hook refuses to work on a file that is not there:
+  #
+  #   if [ ! -f "$config_file" ]; then
+  #       echo "Warning: btop config file not found …" >&2; exit 0
+  #   fi
+  #
+  # and after the Stylix target came off, home-manager stops writing btop.conf
+  # and removes the one it had — so without this the very first templates-apply
+  # would quietly do nothing. btop only writes a config of its own when it
+  # exits, so "just run btop once" would be the alternative, which is a footgun
+  # rather than a configuration.
+  #
+  # One key is enough: btop defaults everything it does not find, and rewrites
+  # the whole file on exit anyway. Naming the theme here also means the hook's
+  # first branch matches and it has no work to do at all.
+  btopConfig = pkgs.writeText "btop.conf" ''
+    color_theme = "noctalia"
+  '';
+
   fastfetchConfig = pkgs.writeText "fastfetch-config.jsonc" (builtins.toJSON {
     "$schema" = "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json";
     modules = [
@@ -189,6 +208,17 @@ in {
     if [ ! -e "$cfg" ]; then
       run mkdir -p $VERBOSE_ARG "$(dirname "$cfg")"
       run install -m644 $VERBOSE_ARG ${fastfetchConfig} "$cfg"
+    fi
+  '';
+
+  # Same again for btop — see the btopConfig binding above for why its hook
+  # cannot bootstrap itself. Runs after linkGeneration, so the btop.conf
+  # home-manager used to own has already been removed by the time this looks.
+  home.activation.btopConfigSeed = lib.hm.dag.entryAfter ["linkGeneration"] ''
+    cfg="${config.xdg.configHome}/btop/btop.conf"
+    if [ ! -e "$cfg" ]; then
+      run mkdir -p $VERBOSE_ARG "$(dirname "$cfg")"
+      run install -m644 $VERBOSE_ARG ${btopConfig} "$cfg"
     fi
   '';
 }

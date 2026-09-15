@@ -124,6 +124,14 @@ It is also the one app here whose Stylix target was *already* doing nothing:
 `stylix.targets.zellij` writes `themes/stylix.kdl` but never sets `theme`, so
 nothing ever selected it and zellij had been running unthemed all along.
 
+**Three hooks refuse to bootstrap their own config.** `fastfetch` errors out,
+`cava` exits 1, and `btop` warns and exits 0 — all three when the app's config
+file does not exist yet, which is exactly the state a fresh machine is in, and
+the state `btop.conf` lands in the moment home-manager stops writing it. Each is
+seeded from Nix as a real writable file, only when absent (`cli.nix` for
+fastfetch and btop, `apps.nix` for cava). `bat`, `lazygit` and `yazi` do create
+their own, so they need nothing.
+
 **fzf's snippet appends to a universal variable.** It ends with
 `set -Ux FZF_DEFAULT_OPTS "$FZF_DEFAULT_OPTS\n<theme opts>"`, and universals
 persist in `fish_variables`, so sourcing it once per shell would grow the value
