@@ -474,6 +474,11 @@ in {
       #     heroiclauncher      -> themes/matugen.css, picked once in Heroic's UI.
       #                            Gated on ~/.config/heroic existing, so it stays
       #                            inert until Heroic has been run once.
+      #     vscode              -> overwrites the colour file inside the
+      #                            Noctalia.noctaliatheme extension, which
+      #                            ./vscodium.nix installs. Touches nothing
+      #                            sync-settings syncs; pick the theme once in
+      #                            the UI. Gated on ~/.vscode-oss existing.
       #     ungoogled-chromium  -> an unpacked extension under ~/.cache. Needs one
       #                            manual "Load unpacked" at chrome://extensions;
       #                            after that it re-themes itself in place.
@@ -521,6 +526,7 @@ in {
         "obs"
         "opencode"
         "ungoogled-chromium"
+        "vscode"
         "zen-browser"
         "neovim"
         "yazi"

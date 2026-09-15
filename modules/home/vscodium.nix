@@ -47,5 +47,37 @@
     if ! ${pkgs.vscodium}/bin/codium --list-extensions 2>/dev/null | grep -qix 'zokugun.sync-settings'; then
       run ${pkgs.vscodium}/bin/codium --install-extension zokugun.sync-settings || true
     fi
+
+    # The other half of the bootstrap: the theme extension Noctalia templates
+    # into. Same shape as the line above — install it once if missing, then
+    # leave it alone.
+    #
+    # Noctalia's `vscode` template (theme.templates in ./noctalia.nix) has no
+    # apply.sh at all. It writes exactly one file,
+    #   ~/.vscode-oss/extensions/noctalia.noctaliatheme-0.0.5-universal/themes/
+    #     NoctaliaTheme-color-theme.json
+    # so it overwrites this extension's colours in place and touches nothing
+    # else. That is why it is safe next to sync-settings, which syncs
+    # settings.json, keybindings, snippets and the extension LIST — never the
+    # contents of an extension directory.
+    #
+    # Two consequences that are real but benign, and better known than
+    # discovered:
+    #   - this becomes a 53rd entry in the synced extensions.yml at the next
+    #     Upload, so the other machines will install it too;
+    #   - a Download that reinstalls it restores the stock colours from the
+    #     VSIX, until the next `noctalia msg templates-apply`.
+    #
+    # Deliberately NOT setting workbench.colorTheme from here: settings.json is
+    # sync-settings' file, and writing to it from activation would fight the
+    # extension for it. Pick "NoctaliaTheme" once in the UI and the sync carries
+    # the choice to the other machines.
+    #
+    # Fragility worth knowing: the template hardcodes 0.0.5 in that path. If the
+    # extension ever updates, the template writes to a directory that no longer
+    # exists and silently does nothing until upstream bumps it too.
+    if ! ${pkgs.vscodium}/bin/codium --list-extensions 2>/dev/null | grep -qix 'noctalia.noctaliatheme'; then
+      run ${pkgs.vscodium}/bin/codium --install-extension Noctalia.noctaliatheme || true
+    fi
   '';
 }
