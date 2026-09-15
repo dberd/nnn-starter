@@ -123,7 +123,10 @@ in {
       theme = {
         source = "wallpaper";
         mode = "dark";
-        wallpaper_scheme = "m3-tonal-spot";
+        # Pinned to what is actually in use: monochrome was picked at runtime and
+        # only lived in ~/.local/state, so a fresh machine would have come up on
+        # tonal-spot instead.
+        wallpaper_scheme = "m3-monochrome";
 
         # Picked while browsing palettes in the control center. Both are inert
         # while `source` stays "wallpaper": they are read only when source is
@@ -295,14 +298,33 @@ in {
         # all nine and the bar filled up with empty pills.
         #
         # `hide_when_empty` is the switch for that — "Hide workspace pills that
-        # have no open windows", so what is left is the occupied tags plus the
-        # focused one. mango's IPC reports `client_count` per tag, which is what
-        # makes the widget able to tell them apart in the first place.
+        # have no open windows" — so what is left is the occupied tags plus the
+        # focused one, even when the focused one is empty. mango's IPC reports
+        # `client_count` per tag, which is what lets the widget tell them apart.
         #
-        # NOT `show_all_workspaces`, despite the name: that one is labelled
-        # "Show All Monitors" in the UI and controls whether this widget lists
-        # the other monitor's workspaces too. It has nothing to do with empties.
-        workspaces.hide_when_empty = true;
+        # `show_labels = false` drops the numbers: with empties hidden the pills
+        # no longer line up with tag ids anyway, so a digit on each one is noise
+        # rather than information. `label_source` and `labels_only_when_occupied`
+        # are deliberately absent — they only decide what a label SAYS, and there
+        # is no label any more.
+        #
+        # `show_all_workspaces` is a misnomer worth knowing: the UI calls it
+        # "Show All Monitors" and it controls whether this widget also lists the
+        # other monitor's tags. Off, so each bar shows its own output.
+        #
+        # `style` is the shape: `regular` animates pills, `minimal` is text only,
+        # `focus_hint` draws dots for inactive tags and an app icon in the active
+        # one. Regular is the niri look.
+        #
+        # All of these are runtime settings too — Settings → Bar → Widgets →
+        # Workspaces — so the look can be dialled in without a rebuild and then
+        # written back here.
+        workspaces = {
+          hide_when_empty = true;
+          show_labels = false;
+          style = "regular";
+          show_all_workspaces = false;
+        };
 
         # Hide the player outright when nothing is playing, instead of parking a
         # permanent "Nothing Playing" label in the bar.
@@ -350,6 +372,17 @@ in {
         position = "bottom_center";
         offset_x = 0;
         offset_y = 24;
+
+        # Each kind of OSD can be switched off on its own. Layout is off because
+        # the bar already carries a permanent `keyboard_layout` widget, so a
+        # popup on every Alt+Shift says what is already on screen.
+        #
+        # This does NOT make the Alt+Shift routing in ./mango.nix pointless: that
+        # bind exists because Noctalia's MangoKeyboardBackend has no change
+        # callback and only learns the layout by asking, which left the BAR
+        # widget stale too. Routing the switch through the shell keeps that
+        # indicator immediate; only the popup is dropped here.
+        kinds.keyboard_layout = false;
       };
 
       # Noctalia can theme external apps from the active palette, which is what
@@ -358,7 +391,7 @@ in {
       # target switched off in the matching home module, so exactly one of the two
       # owns each file: ghostty in ./ghostty.nix, gtk3/gtk4 in ./gtk.nix.
       #
-      # Only these three. The rest of the catalogue is either irrelevant or worse
+      # Only these four. The rest of the catalogue is either irrelevant or worse
       # than what we have:
       #   qt      — the template has no post_hook, so it writes
       #             qt{5,6}ct/colors/noctalia.conf and nothing ever selects it;
@@ -372,13 +405,14 @@ in {
       #   niri    — needs `include "noctalia.kdl"`, a directive niri-stable 25.08
       #             does not have. See the focus-ring note in ./niri.nix.
       #
-      # mango IS taken, and is the one template here that themes a compositor.
-      # Its apply.sh is the appends-an-include-line kind rather than the
-      # writes-through-the-symlink kind, and modules/home/mango.nix already puts
-      # that include line in config.conf, so the hook finds it, skips the write
-      # and just runs `mmsg dispatch reload_config`. Net effect: mango's border
-      # and root colours follow a palette switch live, which is exactly what the
-      # niri entry above cannot do.
+      #   mango   — taken, and the one template here that themes a compositor.
+      #             Its apply.sh is the appends-an-include-line kind rather than
+      #             the writes-through-the-symlink kind, and modules/home/mango.nix
+      #             already puts `source=~/.config/mango/noctalia.conf` in
+      #             config.conf, so the hook finds it, skips the write and just
+      #             runs `mmsg dispatch reload_config`. Net effect: mango's
+      #             border and root colours follow a palette switch live, which
+      #             is exactly what the niri entry above cannot do.
       theme.templates.builtin_ids = ["ghostty" "gtk3" "gtk4" "mango"];
 
       # Lock on idle. Noctalia has this built in — it was simply disabled, so no
