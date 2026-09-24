@@ -77,6 +77,7 @@ only one that actively replaces a read-only symlink with a real file.
 | `heroiclauncher` | `~/.config/heroic/themes/matugen.css` | nothing — pick it once in Heroic's UI |
 | `ungoogled-chromium` | `~/.cache/noctalia/ungoogled-chromium/theme/` | `stylix.targets.chromium` off **at the NixOS level** (see below); then one **Load unpacked** at `chrome://extensions` |
 | `zen-browser` | `~/.cache/noctalia/zen-browser/*.css`, plus an `@import` in the profile | `stylix.targets.zen-browser` off, which releases the profile's `chrome/user{Chrome,Content}.css` and `user.js`. Costs the reader-mode custom colours — see below |
+| `niri` | `~/.config/niri/noctalia.kdl` | needs **niri-unstable** — see below; `niri.nix` builds `config.kdl` itself so the `include` line the hook greps for is already in it. The focus-ring colours in Nix stay as the pre-include fallback |
 
 ### Stylix — needs a rebuild to follow
 
@@ -85,7 +86,6 @@ only one that actively replaces a read-only symlink with a real file.
 | fonts | Noctalia has no font templating at all |
 | cursor theme | same |
 | Qt / Kvantum | the `qt` template has **no `post_hook`**, so the `qt{5,6}ct/colors/noctalia.conf` it writes is never selected; and there is no Kvantum template in either catalogue |
-| niri focus ring | the `niri` template needs `include "noctalia.kdl"`, which niri-stable 25.08 rejects: `unexpected node 'include'` |
 | starship, fish | hand-written against palette names |
 
 `papirus-icons` is in neither column: its hook reads `/usr/share/icons/$variant`,
@@ -93,6 +93,46 @@ which does not exist on NixOS, so it skips every variant and does nothing.
 Making it work would need a template of our own — see below.
 
 ## Gotchas worth remembering
+
+**niri's `include` needs `optional=true` and an absolute path, and the first of
+those is newer than niri-stable.** The hook appends `include "noctalia.kdl"` to
+`config.kdl` — a read-only store symlink here, so as everywhere else the line
+has to already be in the file. Two niri features stand between that and 25.08:
+`include` itself (**25.11** — 25.08 answers `unexpected node 'include'`) and
+`include optional=true` (**26.04**). That is why `modules/nixos/niri.nix` pins
+`niri-unstable`.
+
+`optional` is needed because niri-flake runs `niri validate` on the document at
+**build** time, when `noctalia.kdl` does not exist yet; without it a fresh
+machine cannot build at all. The path has to be absolute for a reason that is
+not about versions: a relative include resolves against the file it is written
+in, and that file is `/nix/store/…/config.kdl`, not `~/.config/niri/`. It is
+built from `config.xdg.configHome`, which is the same directory the hook itself
+resolves as `${XDG_CONFIG_HOME:-$HOME/.config}/niri`.
+
+Both fit inside the hook's grep:
+
+```
+^[[:space:]]*include([[:space:]].*)?"([^"]*/)?noctalia\.kdl"([[:space:]]|$)
+```
+
+— a property and a leading path are both tolerated, so
+`include optional=true "/home/you/.config/niri/noctalia.kdl"` still reads as
+"already included" and the append is skipped.
+
+Two consequences worth knowing. **Includes are positional** — they override
+only what precedes them, hence the line goes at the *end* of `config.kdl`,
+after the focus-ring block it is meant to beat. And `layout { border { … } }`
+in an *included* file does **not** imply `on`, unlike the main config, so
+`border.enable = false` survives the template writing border colours.
+
+**`xwayland-satellite` has to move with niri.** niri-flake's own docs say the
+`programs.niri.settings.xwayland-satellite` block "requires unstable niri and
+unstable xwayland-satellite", so `modules/home/niri.nix` takes it from
+`inputs.niri.packages.<sys>` rather than `pkgs`. The `pkgs` spelling applies the
+niri overlay to *our* nixpkgs, which `niri.cachix.org` has no build for — a
+from-source Rust build behind a 324 MiB toolchain download, for a binary the
+flake's own package set serves prebuilt.
 
 **Template ids are not validated.** `noctalia config validate` accepts a
 misspelled builtin *or* community id without a word; the only symptom is a theme

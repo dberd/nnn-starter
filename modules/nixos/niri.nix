@@ -9,7 +9,26 @@
   # Use niri-flake's own prebuilt package (built against its nixpkgs) so it
   # comes from niri.cachix.org instead of compiling from source. This is the
   # exact build the niri-flake settings schema targets.
-  programs.niri.package = inputs.niri.packages.${pkgs.stdenv.hostPlatform.system}.niri-stable;
+  #
+  # `niri-unstable`, not `niri-stable`, and the reason is the config parser:
+  # Noctalia themes niri through `include "noctalia.kdl"`, and both pieces that
+  # make that takeable landed after the 25.08 release —
+  #
+  #   include            niri 25.11   (25.08: "unexpected node `include`")
+  #   include optional=  niri 26.04   lets `niri validate` pass at BUILD time,
+  #                                   when noctalia.kdl does not exist yet
+  #
+  # (An absolute include path, which ../home/niri.nix builds from
+  # `xdg.configHome`, is needed for a third reason that is not a version one: a
+  # relative include resolves against the file it sits in, and that file is in
+  # /nix/store rather than ~/.config/niri.)
+  #
+  # Both channels are cached in niri.cachix.org, so this is a download, not a
+  # build. The cost is that unstable moves: a `nix flake update niri` can bring
+  # a config-schema change. That fails loudly rather than silently — the home
+  # module runs `niri validate` against THIS package at build time — so a bad
+  # bump breaks the rebuild, never the running session.
+  programs.niri.package = inputs.niri.packages.${pkgs.stdenv.hostPlatform.system}.niri-unstable;
 
   # Wayland portals. Per niri's own recommendations: the gnome backend is
   # REQUIRED for screencasting, gtk is the general-purpose fallback, and

@@ -397,10 +397,14 @@ in {
       # exactly one of the two owns each file; the module is named against each
       # id, and the file it touches is what the two would otherwise fight over.
       #
-      # What is left to Stylix after this is the set Noctalia has no template
-      # for at all — fonts, the cursor theme, Qt/Kvantum — plus niri's focus ring
-      # and zen's userChrome, which it does have templates for but cannot use
-      # here. Those five are the reason Stylix is still in this config.
+      # What is left to Stylix after this is the set Noctalia has no usable
+      # template for at all — fonts, the cursor theme, Qt/Kvantum — plus
+      # starship and fish, which are hand-written against palette names. That
+      # short list is the reason Stylix is still in this config.
+      #
+      # niri is a half-case: the `niri` template owns its colours live, but the
+      # focus-ring block in ./niri.nix stays as the pre-include fallback, since
+      # a machine that has never run Noctalia has no noctalia.kdl to include.
       #
       # WHAT DECIDES WHETHER A TEMPLATE CAN BE TAKEN. Most apply.sh hooks mutate
       # the app's own config file with `cat "$tmp" > "$file"`, and home-manager
@@ -420,19 +424,15 @@ in {
       # The exceptions are the hooks that append rather than overwrite: ghostty
       # only needs `theme = noctalia` to already be in the file (./ghostty.nix
       # sets it, so the grep matches and the hook does nothing), mango only needs
-      # its `source=` line, and the GTK hook is the one that actively replaces a
-      # read-only symlink with a real file.
+      # its `source=` line, niri only needs its `include` line (./niri.nix, which
+      # has to build config.kdl itself to get it in), and the GTK hook is the one
+      # that actively replaces a read-only symlink with a real file.
       #
       # Rejected, and why:
       #   qt       — no post_hook at all, so it writes qt{5,6}ct/colors/noctalia.conf
       #              and nothing ever selects it. There is no Kvantum template in
       #              either catalogue, and Kvantum paints from its own theme and
       #              ignores the qtct palette regardless. Stylix keeps Qt.
-      #   niri     — wants `include "noctalia.kdl"`, which niri-stable 25.08 does
-      #              not parse ("unexpected node `include`"). The hook itself is
-      #              the safe append kind, so this becomes takeable the day niri
-      #              gains the directive. Stylix keeps the focus ring; see the
-      #              note in ./niri.nix.
       #   starship — writes through the symlink, and the prompt is hand-written
       #              against palette names in ./starship.nix anyway.
       #   papirus-icons — does not work on NixOS at all: its hook reads
@@ -450,6 +450,7 @@ in {
         "gtk3"
         "gtk4" # ./gtk.nix — the one hook that handles a read-only symlink
         "mango" # the only compositor here that follows a palette switch live
+        "niri" # ./niri.nix appends the `include` line the hook greps for
         "cava" # ./apps.nix keeps it a raw package, so its config is unowned
         "btop" # ./cli.nix — Stylix target off, so btop.conf is unowned
       ];

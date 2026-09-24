@@ -1,5 +1,7 @@
 {
   config,
+  inputs,
+  lib,
   local,
   pkgs,
   ...
@@ -18,7 +20,15 @@
     # xwayland-satellite and export DISPLAY for them, but only when told where
     # the binary is — the default leaves it unset, which is why Steam reported
     # "unable to open a connection to X".
-    xwayland-satellite.path = "${pkgs.xwayland-satellite-stable}/bin/xwayland-satellite";
+    #
+    # UNSTABLE, and from niri-flake's own package set rather than `pkgs`.
+    # niri-flake's docs are explicit that this settings block "requires unstable
+    # niri and unstable xwayland-satellite", so it has to move in step with
+    # ../nixos/niri.nix. Taking it from `pkgs` would apply the niri overlay to
+    # OUR nixpkgs, which niri.cachix.org has no build for: that is a from-source
+    # Rust build plus a 324 MiB toolchain. `inputs.niri.packages` is the same
+    # arrangement the niri package itself uses, and is a 23 MiB cache hit.
+    xwayland-satellite.path = "${inputs.niri.packages.${pkgs.stdenv.hostPlatform.system}.xwayland-satellite-unstable}/bin/xwayland-satellite";
 
     # The HDMI monitor (MSI MP241X, DDC display 1) comes up at 90% brightness
     # on its own — that's the panel's own remembered state, not anything niri
@@ -81,15 +91,20 @@
       # nothing gets drawn. Thin outline on the focused window; transparent on
       # the rest so only the selected one is marked.
       #
-      # The colour comes from Stylix's palette rather than a literal, so it
-      # tracks stylix.image along with everything else Stylix paints. Note this
-      # is settled at BUILD time: niri reads a static KDL out of the store and
-      # knows nothing about Noctalia, so switching wallpaper or colour scheme in
-      # the Noctalia GUI moves its own surfaces immediately but leaves this
-      # where it is until the next rebuild. Making it live needs Noctalia's
-      # `niri` template, which works through `include "noctalia.kdl"` — a
-      # directive niri-stable 25.08 does not have (verified: "unexpected node
-      # `include`"; niri-unstable parses it fine).
+      # The colour comes from Stylix's palette, not a literal, so it tracks
+      # stylix.image. It is also no longer what you actually see: the `include`
+      # appended at the bottom of this module hands focus-ring, border, shadow,
+      # tab-indicator and insert-hint colours to Noctalia's `niri` template,
+      # and niri includes are POSITIONAL — whatever the include sets overrides
+      # what was set before it. So this block is the pre-Noctalia fallback: it
+      # is what a fresh machine draws until `noctalia.kdl` first appears, and
+      # what remains if the template is ever dropped.
+      #
+      # `enable = true` still matters, and has to live HERE rather than in the
+      # include. The template writes colours only, and a `layout { border { … } }`
+      # in an INCLUDED file deliberately does not imply `on` — only the main
+      # config has that historical behaviour. Same reason `border.enable = false`
+      # below survives the include.
       focus-ring = with config.lib.stylix.colors.withHashtag; {
         enable = true;
         width = 2;
@@ -488,4 +503,43 @@
       "XF86MonBrightnessDown".action.spawn = ["noctalia" "msg" "brightness-down"];
     };
   };
+
+  # Noctalia's `niri` template, wired the way ghostty's and mango's already are:
+  # its apply.sh only APPENDS `include "noctalia.kdl"` when a grep for that line
+  # fails, and config.kdl here is a read-only /nix/store symlink that no append
+  # could touch. So the line ships in the file and the hook finds its work done.
+  #
+  # Three details decide whether it works:
+  #
+  #   * The hook's grep is
+  #       ^[[:space:]]*include([[:space:]].*)?"([^"]*/)?noctalia\.kdl"([[:space:]]|$)
+  #     which tolerates both a property and a leading path — so the absolute
+  #     form below still reads as "already included" and the append is skipped.
+  #   * An absolute path rather than a bare `noctalia.kdl`, because a relative
+  #     include resolves against the file it is written in — and that file is in
+  #     /nix/store, not ~/.config/niri. It is built from `xdg.configHome` rather
+  #     than written out, so it agrees with the hook, which resolves the same
+  #     directory as `${XDG_CONFIG_HOME:-$HOME/.config}/niri`.
+  #   * `optional=true`, because noctalia.kdl does not exist until Noctalia
+  #     first renders it, and validated-config-for runs `niri validate` on this
+  #     document at BUILD time. Without it a fresh machine cannot build.
+  #
+  # Appended rather than prepended on purpose: niri includes are positional and
+  # only override what precedes them — see the focus-ring note above.
+  #
+  # niri-flake sets xdg.configFile.niri-config with a plain assignment, hence
+  # mkForce. Its own validating writer is reused rather than replaced, so the
+  # KDL is still checked against programs.niri.package.
+  xdg.configFile.niri-config.source = lib.mkForce (
+    inputs.niri.lib.internal.validated-config-for
+    pkgs
+    config.programs.niri.package
+    (
+      config.programs.niri.finalConfig
+      + ''
+
+        include optional=true "${config.xdg.configHome}/niri/noctalia.kdl"
+      ''
+    )
+  );
 }

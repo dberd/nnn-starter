@@ -281,7 +281,9 @@ is ~an hour). To avoid that, the flake pins **noctalia to its `cachix` branch**
 to `noctalia.cachix.org`, so `inputs.noctalia.packages.<sys>.default` is always a
 cache hit. It still tracks the **v5 line** (`main`), just slightly behind; the
 old series lives on `legacy-v4`. niri uses niri-flake's prebuilt
-`niri-stable` from `niri.cachix.org` for the same reason.
+`niri-unstable` from `niri.cachix.org` for the same reason — **unstable**, not
+`niri-stable`, because Noctalia themes niri through an `include` directive that
+the 25.08 release does not parse (see [`modules/nixos/niri.nix`](modules/nixos/niri.nix)).
 
 The two caches are trusted in [`modules/nixos/default.nix`](modules/nixos/default.nix)
 so your machine pulls binaries too. Neither input may `follows` our `nixpkgs` —
