@@ -14,6 +14,7 @@
     ./claude-code.nix
     ./secrets.nix
     ./vpn.nix
+    ./happ.nix
     ./docker.nix # optional: comment out if you don't want containers
     # NOTE: hardware is per-host — each hosts/<name>/default.nix imports exactly
     # one of ./hardware/{amd-desktop,intel-laptop}.nix. Same for ./gaming.nix

@@ -66,26 +66,23 @@
       '';
   });
 in {
-  # ── Throne ────────────────────────────────────────────────────────────────
-  # GUI proxy manager on top of sing-box. The upstream NixOS module does the
-  # privileged parts for us: a security.wrappers entry giving ThroneCore
-  # cap_net_admin/net_raw/net_bind_service (instead of upstream's setuid), and a
-  # polkit rule so TUN mode can talk to systemd-resolved without prompting for a
-  # password three times per connect.
+  # ── Proxy engine ──────────────────────────────────────────────────────────
+  # Happ (modules/nixos/happ.nix) replaced Throne: the entry node is
+  # VLESS+REALITY, which Throne's sing-box core cannot complete a handshake
+  # with. Happ runs VLESS through Xray-core and uses sing-box only for TUN
+  # (auto_route + strict_route, NO auto_redirect), so it installs ip rules in
+  # sing-box's default 9000-9010 block and no nftables catch-all. That is
+  # exactly what the routing script below was originally written against
+  # (snx-happ-routing.sh): rules 4900-5100 sit ahead of 9000 and win.
   #
-  # The upstream module has no systemd unit of its own — only the package and
-  # ThroneCore's capabilities — so it has always been a manual "launch it from
-  # the app list" step. A systemd.user.services.throne bound to
-  # graphical-session.target was tried on 23.08 to autostart it and reverted
-  # the same day: the GUI showed a "cannot set suid for ThroneCore" error on
-  # its very first autostart after a real reboot, even though
-  # /run/wrappers/bin/ThroneCore carried the right capabilities at the time —
-  # root cause not pinned down, not worth re-guessing at on a live connection.
-  # See docs/proxy.md §9.
-  programs.throne = {
-    enable = true;
-    tunMode.enable = true;
-  };
+  # Steps 5-6 (the nftables bypass) were added for Throne's auto_redirect
+  # chains. With Happ there is no `inet sing-box` table to read the mark from,
+  # the script falls back to 0x2024, and the bypass table has nothing left to
+  # defuse — redundant, but harmless. It is kept so that switching back to any auto_redirect front-end
+  # does not silently break the snx tunnel again.
+  #
+  # Throne must stay OFF: two TUN front-ends at once fight over the default
+  # route and DNS.
 
   environment.systemPackages =
     [snx-rs]
