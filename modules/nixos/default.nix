@@ -11,7 +11,7 @@
     ./stylix.nix
     ./users.nix
     ./dev.nix
-    ./claude-code.nix
+    ./overlays.nix
     ./secrets.nix
     ./vpn.nix
     ./happ.nix

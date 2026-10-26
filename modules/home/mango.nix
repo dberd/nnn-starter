@@ -6,6 +6,17 @@
   pkgs,
   ...
 }: let
+  # Worth knowing before editing anything below: mango renamed almost every
+  # config key to snake_case in October 2026 — `borderpx` → `border_px`,
+  # `sloppyfocus` → `sloppy_focus`, `windowrule` → `window_rule`,
+  # `monitorrule` → `monitor_rule`, `tagrule` → `tag_rule`, `gappoh` →
+  # `gap_outer_horizontal`; inside a window_rule, `appid` → `app_id`,
+  # `isfloating` → `is_floating`, `isfullscreen` → `is_fullscreen`. Old
+  # spellings are not aliases: the parser prints "Unknown keyword" and
+  # `mango -c … -p` exits non-zero, so a stale name fails the rebuild rather
+  # than being quietly ignored. The names in the C source did NOT follow (it
+  # is still `config.sloppyfocus`, `m->gappoh`), which is why the code
+  # citations further down read differently from the keys they explain.
   # Upstream's own assets/config.conf, straight out of the locked input. It stays
   # the source of everything this file does not have an opinion about: effects
   # defaults, gestures, mouse bindings, scratchpad, dwindle knobs. Reading it
@@ -25,7 +36,7 @@
 
   # Two edits to the stock text beyond the bind strip above.
   #
-  # tagrule: nine tags moved from master-stack to the scrolling layout.
+  # tag_rule: nine tags moved from master-stack to the scrolling layout.
   #
   # mousebind: stock binds PLAIN middle click to `togglemaximizescreen`, and a
   # matched mousebind is swallowed — pointer.c returns true without calling
@@ -52,7 +63,7 @@
   # `name` is a regex in mango, hence the ^…$ anchors. Nix renders floats as
   # "74.968000" / "1.200000", which mango parses with strtof.
   monitorrules =
-    lib.concatMapStrings (s: "monitorrule=${s}\n")
+    lib.concatMapStrings (s: "monitor_rule=${s}\n")
     (lib.mapAttrsToList (
         name: m:
           lib.concatStringsSep "," [
@@ -190,7 +201,7 @@
       # It deliberately does NOT use `togglemaximizescreen`, the obvious-looking
       # match for niri's maximize-column. That sets a separate `ismaximizescreen`
       # flag, and while it is on mango refuses the mouse grab outright
-      # (pointer.c:787) and skips exchange_client, exchange_stack_client,
+      # (pointer.c:1005) and skips exchange_client, exchange_stack_client,
       # resize_window, center_window and togglefloating — the window freezes.
       # Worse, switch_proportion_preset has NO such guard, so Mod+R on a
       # maximized window rewrote the stored proportion while the geometry stayed
@@ -232,9 +243,14 @@
       "SUPER,Right,focusdir,right"
       "SUPER,Up,focusdir,up"
       "SUPER,Down,focusdir,down"
-      "ALT,Tab,focuslast"
 
-      # Ctrl crosses monitors. Worth knowing: with sloppyfocus off these are
+      # Alt+Tab, the same Noctalia switcher overlay ./niri.nix now binds, for
+      # the same reason: the shell draws it, so it looks and behaves identically
+      # in both sessions. `focuslast` — mango's own two-window toggle — is what
+      # this replaces; SUPER+Tab above is still mango's native `switcher`.
+      "ALT,Tab,spawn,${noctalia} msg window-switcher hold"
+
+      # Ctrl crosses monitors. Worth knowing: with sloppy_focus off these are
       # the reliable way to change monitor, because a click on empty desktop
       # selects the monitor without moving keyboard focus (see below).
       "SUPER+CTRL,Left,focusmon,left"
@@ -329,22 +345,22 @@
     # adds is WHICH output it lands on: without it the game opens wherever
     # focus happened to be when Steam launched the title, usually the small
     # panel. Both app-id and title are literally "gamescope".
-    "monitor:${local.gameOutput.name},isfullscreen:1,appid:^gamescope$"
+    "monitor:${local.gameOutput.name},is_fullscreen:1,app_id:^gamescope$"
 
     # Steam's main window takes the column; Friends, the overlay and download
     # toasts are companion windows that should not take one at all.
-    "scroller_proportion:1.0,appid:^steam$,title:^Steam$"
-    "isfloating:1,appid:^steam$,title:^(?!Steam$).*"
+    "scroller_proportion:1.0,app_id:^steam$,title:^Steam$"
+    "is_floating:1,app_id:^steam$,title:^(?!Steam$).*"
 
     # "One big document" apps get the full column. These app-ids are what the
     # windows actually report, not what their .desktop StartupWMClass claims —
     # VSCodium says "vscodium" there but "codium" on the window. Thunderbird is
     # the unverified one: its .desktop says "thunderbird", but check a live
     # window with `mmsg get all-clients` before trusting it.
-    "scroller_proportion:1.0,appid:^(zen-beta|codium|DBeaver|thunderbird)$"
+    "scroller_proportion:1.0,app_id:^(zen-beta|codium|DBeaver|thunderbird)$"
 
     # The cheat sheet: a sheet over the session, not a column.
-    "isfloating:1,width:1000,height:720,appid:^${lib.escapeRegex keysClass}$"
+    "is_floating:1,width:1000,height:720,app_id:^${lib.escapeRegex keysClass}$"
   ];
 in {
   # MangoWC as a second wayland session next to niri. The system half is
@@ -418,21 +434,21 @@ in {
       # ---- input ----------------------------------------------------------
       # niri has focus-follows-mouse off and a flat mouse curve.
       #
-      # Known cost of sloppyfocus=0, and it is mango's behaviour rather than a
+      # Known cost of sloppy_focus=0, and it is mango's behaviour rather than a
       # gap in this config: a click on EMPTY desktop selects that monitor
       # (pointer.c sets selected_monitor on button press) but does not move
       # keyboard focus, because client_focus() only runs when the click lands
       # on a window surface. The pointer-motion path that would fix it sits
       # behind `if (config.sloppyfocus)`. There is no setting for it — use
       # Mod+Ctrl+H/L, or click the window itself.
-      sloppyfocus=0
+      sloppy_focus=0
       mouse_accel_profile=1
       trackpad_natural_scrolling=1
 
       # ---- layout ---------------------------------------------------------
       # niri drew a 2px focus ring; mango has one border that changes colour
       # with focus, so the ring width becomes the border width.
-      borderpx=2
+      border_px=2
 
       # Tag transitions slide vertically, the way niri's workspaces do,
       # instead of stock's horizontal.
@@ -453,19 +469,19 @@ in {
       # a peek strip so the neighbouring column stays visible at full width.
       # It is also, and this is the part the name hides, THE ONLY SOURCE OF A
       # LEFT/RIGHT MARGIN for a tiled scroller column. gappoh is never consulted
-      # on the scroll axis at all (scroll.c:353):
+      # on the scroll axis at all (scroll.c:364):
       #
       #   max_client_width = m->w.width - 2*scroller_structs - gappih
-      #   target_geom.x    = m->w.x + scroller_structs            (scroll.c:482)
+      #   target_geom.x    = m->w.x + scroller_structs            (scroll.c:496)
       #
       # so at the stock 20 a 1.0 column sits 20px from one edge and 25px from
       # the other, and at 0 it goes edge to edge — which is what Mod+F and the
       # `scroller_proportion:1.0` window rules below were doing. gappoh only
-      # reaches a window through togglemaximizescreen (scroll.c:472), which this
+      # reaches a window through togglemaximizescreen (scroll.c:485), which this
       # config deliberately does not use.
       #
       # Set to gappoh, so the two agree: a lone window centres with ~12px each
-      # side (n_heads == 1 forces the centring branch, scroll.c:446) and a
+      # side (n_heads == 1 forces the centring branch, scroll.c:456) and a
       # focused full-width column among others gets 10px on the side it is
       # aligned to and 15px on the other. The 5px difference is gappih and is
       # structural — stock's 20 produces 20/25 the same way.
@@ -484,7 +500,7 @@ in {
       # NOT set: scroller_ignore_proportion_single. niri centres a lone column
       # (always-center-single-column) and mango can too, at 0 — but in that
       # mode set_proportion and switch_proportion_preset return early while one
-      # window is on the tag (bind.c:912, bind.c:956), so Mod+R would silently
+      # window is on the tag (bind.c:977, bind.c:1021), so Mod+R would silently
       # do nothing. Keeping the default trades the centring for working width.
       circle_layout=scroller,tile,monocle
 
@@ -508,7 +524,7 @@ in {
       layer_animations=0
 
       # ---- window rules ---------------------------------------------------
-      ${lib.concatMapStrings (r: "windowrule=${r}\n") windowRules}
+      ${lib.concatMapStrings (r: "window_rule=${r}\n") windowRules}
       # ---- binds ----------------------------------------------------------
       ${lib.concatMapStrings (b: "bind=${b}\n") binds}
       ${lib.concatMapStrings (a: "axisbind=${a}\n") axisBinds}

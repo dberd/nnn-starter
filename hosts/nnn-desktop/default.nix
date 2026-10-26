@@ -27,7 +27,7 @@
   # greeter.toml, which is a /nix/store symlink Sync never touches — and which
   # wins over sync.toml for every key it carries. So do NOT add an `appearance`
   # section below: a complete palette here makes Sync a no-op.
-  programs.noctalia-greeter.settings = {
+  services.displayManager.noctalia-greeter.settings = {
     session.default = "niri";
     output = {
       # Primary monitor — the greeter draws here rather than on whichever output

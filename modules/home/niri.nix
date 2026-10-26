@@ -16,19 +16,35 @@
     # switch for that, not the Mod+Shift+Slash binding further down.
     hotkey-overlay.skip-at-startup = true;
 
+    # Noctalia asks for this one by name on its own niri page, and it is not
+    # cosmetic: without it niri refuses the xdg-activation tokens the shell
+    # hands out, so clicking a notification's action or a window in Noctalia's
+    # switcher/taskbar raises nothing. The serial is "invalid" only in the sense
+    # that it did not come from a keypress inside the activating client — a
+    # layer-shell surface has none to offer.
+    #
+    # `debug` is niri-flake's raw escape hatch (attrs of KDL arguments), so a
+    # no-argument node is written as an empty list. Unverified by the nix
+    # module, but niri validates it at build time like the rest of the config.
+    debug.honor-xdg-activation-with-invalid-serial = [];
+
     # X11 apps (Steam, older games) need an X server. niri can spawn
     # xwayland-satellite and export DISPLAY for them, but only when told where
     # the binary is — the default leaves it unset, which is why Steam reported
     # "unable to open a connection to X".
     #
-    # UNSTABLE, and from niri-flake's own package set rather than `pkgs`.
-    # niri-flake's docs are explicit that this settings block "requires unstable
-    # niri and unstable xwayland-satellite", so it has to move in step with
-    # ../nixos/niri.nix. Taking it from `pkgs` would apply the niri overlay to
-    # OUR nixpkgs, which niri.cachix.org has no build for: that is a from-source
-    # Rust build plus a 324 MiB toolchain. `inputs.niri.packages` is the same
-    # arrangement the niri package itself uses, and is a 23 MiB cache hit.
-    xwayland-satellite.path = "${inputs.niri.packages.${pkgs.stdenv.hostPlatform.system}.xwayland-satellite-unstable}/bin/xwayland-satellite";
+    # From `pkgs`, in step with ../nixos/niri.nix, and for the same glibc reason
+    # spelled out there: xwayland-satellite is an X server talking to the same
+    # system Mesa, so taking it out of niri-flake's own package set would put a
+    # second binary from a different nixpkgs in the GL path. nixpkgs has 0.8.3,
+    # recent enough that niri 26.4.0 drives it, and both are cache.nixos.org
+    # hits.
+    #
+    # niri-flake's docs say this settings block "requires unstable niri and
+    # unstable xwayland-satellite". What that actually requires is the
+    # `xwayland-satellite` config node, and niri 26.04 has it — checked in
+    # niri-config/src/lib.rs on the release this builds against, not assumed.
+    xwayland-satellite.path = "${pkgs.xwayland-satellite}/bin/xwayland-satellite";
 
     # The HDMI monitor (MSI MP241X, DDC display 1) comes up at 90% brightness
     # on its own — that's the panel's own remembered state, not anything niri
@@ -296,6 +312,21 @@
         default-column-width.fixed = 900;
         default-window-height.fixed = 600;
       }
+
+      # Noctalia's settings editor. Unlike every other surface the shell puts
+      # up, this one is a real toplevel rather than a layer-shell panel, so it
+      # is the one piece of Noctalia a window rule can reach — and, being
+      # resizable, the one niri would otherwise hand a column in the scrolling
+      # layout. The size is upstream's own recommendation from its niri page,
+      # and the treatment is Nautilus': a sheet you summon over the session.
+      #
+      # Reachable from the bar, or with `noctalia msg settings-toggle`.
+      {
+        matches = [{app-id = "^dev\\.noctalia\\.Noctalia$";}];
+        open-floating = true;
+        default-column-width.fixed = 1080;
+        default-window-height.fixed = 920;
+      }
     ];
 
     # niri-flake's canonical attribute form: `action.<name> = <args>`. No-arg
@@ -382,11 +413,27 @@
       "Mod+Ctrl+J".action.focus-monitor-down = {};
       "Mod+Ctrl+K".action.focus-monitor-up = {};
 
-      # Toggle between the two most recent windows. This is NOT the full
-      # switcher with previews — that lives in niri's `recent-windows` block,
-      # which niri-flake's settings module doesn't expose. Mod+Tab still opens
-      # the built-in switcher, since niri binds it by default.
-      "Alt+Tab".action.focus-window-previous = {};
+      # Alt+Tab, through Noctalia rather than niri. This used to be
+      # `focus-window-previous` with a note that it was NOT the full switcher
+      # with previews, because niri's own `recent-windows` block is not exposed
+      # by niri-flake's settings module. Noctalia 5.2 settles it: the shell has
+      # a switcher overlay of its own — thumbnails, app icon, caption, counter,
+      # configurable as `shell.window_switcher` (see ./noctalia.nix) — and this
+      # is the bind upstream's own niri page recommends for it.
+      #
+      # `hold`, not a bare invocation, is what makes it behave like Alt+Tab
+      # anywhere else: the shell notices the modifier is still down, so each
+      # further Tab advances the selection and letting Alt go commits it. Fired
+      # without the argument it would open the overlay and immediately settle.
+      #
+      # Mod+Tab still opens niri's built-in switcher, which niri binds itself —
+      # so both are a keypress away and nothing was lost.
+      "Alt+Tab".action.spawn = [
+        "noctalia"
+        "msg"
+        "window-switcher"
+        "hold"
+      ];
 
       # Move — inside the workspace
       "Mod+Shift+H".action.move-column-left = {};

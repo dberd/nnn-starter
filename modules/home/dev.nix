@@ -60,7 +60,6 @@ in {
     # with "C compiler \"gcc\" not found" without this, for any module.
     gcc
 
-
     # Postman alternative
     hoppscotch
   ];

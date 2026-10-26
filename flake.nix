@@ -4,14 +4,42 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
+    # nixpkgs as of 2026-08-23, kept for ONE package: mesa 26.2.1, which
+    # modules/nixos/desktop.nix hands to hardware.graphics. mesa 26.2.4 — the
+    # version the main nixpkgs above carries — breaks the GLX client: every
+    # XWayland/X11 app gets an empty fbconfig list, so Qt dies with "Could not
+    # initialize GLX" and glxinfo with "couldn't find RGB GLX visual or
+    # fbconfig". Wayland/EGL clients are unaffected, which is why only X11 apps
+    # (Happ, and anything else going through xwayland-satellite) noticed.
+    #
+    # Bisected here rather than guessed: with the X server and everything else
+    # held fixed, swapping ONLY the client-side mesa 26.2.1 → 26.2.4 turns a
+    # working `glxinfo -B` into that error, and it fails the same way with
+    # LIBGL_ALWAYS_SOFTWARE=1 and with matching LIBGL_DRIVERS_PATH, so it is
+    # neither the GPU driver nor a driver-path mix-up. The meson flags of the
+    # two builds are byte-identical, so it is upstream mesa, not packaging.
+    #
+    # nixpkgs master is on 26.2.4 too, so there is nothing newer to jump to —
+    # hence a pin rather than an overlay. REMOVE IT once nixpkgs ships a mesa
+    # whose `glxinfo -B` reports a renderer again; the test is one command.
+    nixpkgs-mesa.url = "github:nixos/nixpkgs/56c02bc00adcf003215cc4bd996d6efaf4cff188";
+
     home-manager = {
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
     # Scrollable-tiling Wayland compositor + NixOS/home-manager modules.
+    #
     # Deliberately does NOT follow our nixpkgs, so niri-flake's prebuilt
-    # packages stay byte-identical to what niri.cachix.org has cached.
+    # packages stay byte-identical to what niri.cachix.org has cached. Note that
+    # this is now here for the MODULES and the settings schema only: the
+    # compositor binary comes from our own nixpkgs instead (see
+    # modules/nixos/niri.nix), because a package from a second nixpkgs cannot
+    # reliably dlopen the system Mesa — on 2026-10-14 that cost a whole session
+    # its GPU. Anything out of `inputs.niri.packages` carries that risk; the
+    # same source built through `niri.overlays.niri` (so `pkgs.niri-unstable`)
+    # does not.
     niri.url = "github:sodiboo/niri-flake";
 
     # MangoWC: a dwl/scenefx-derived compositor, offered as a SECOND wayland
@@ -34,11 +62,26 @@
     # (no ~hour-long C++ source build). It tracks `main` (v5), just slightly
     # behind. Crucially we do NOT make it follow our nixpkgs — that would
     # rebuild it against a different nixpkgs and miss the cache.
+    #
+    # Which leaves it exposed to the same hazard that took niri's GPU away (see
+    # above): Noctalia is a GL client and dlopens the system Mesa too. It gets
+    # away with it because upstream's own nixpkgs sits within days of ours, so
+    # the glibc matches — on 2026-10-14 both were 2.44 while niri-flake's was
+    # 2.42. That is luck, not design. When a nixpkgs bump makes the shell render
+    # on llvmpipe or refuse to start, compare
+    #   nix eval .#nixosConfigurations.<host>.pkgs.glibc.version
+    # against the same for `inputs.noctalia.inputs.nixpkgs`, and if they differ,
+    # add `inputs.nixpkgs.follows = "nixpkgs"` here and pay for the ~hour build.
     noctalia.url = "github:noctalia-dev/noctalia-shell/cachix";
 
-    # greetd greeter matching Noctalia. It IS in nixpkgs, but not yet in the
-    # revision our lock pins, and bumping nixpkgs wholesale for one package
-    # would rebuild half the world — so it comes from its own flake instead.
+    # greetd greeter matching Noctalia. Both the package (1.6.0) and a NixOS
+    # module for it now live in our nixpkgs, so this input is no longer here to
+    # fill a gap — it is here because upstream's module is ahead of the
+    # vendored copy. It `disabledModules` the nixpkgs one and adds
+    # `passwordless-sync-users`, the supported way to let Auto-Sync skip the
+    # password prompt (see modules/nixos/noctalia.nix), plus the
+    # `programs.noctalia-greeter` → `services.displayManager.noctalia-greeter`
+    # rename alias. Drop the input and that option disappears with it.
     # Left to bring its own nixpkgs, for the same cache reason as niri/noctalia.
     noctalia-greeter.url = "github:noctalia-dev/noctalia-greeter";
 

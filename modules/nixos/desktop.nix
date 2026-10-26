@@ -1,4 +1,8 @@
-{pkgs, ...}: {
+{
+  inputs,
+  pkgs,
+  ...
+}: {
   # Polkit + a keyring so apps can request privileges and store secrets. The
   # authentication agent that shows the password prompt comes from niri-flake
   # (niri-flake-polkit.service), so none is declared here.
@@ -25,9 +29,28 @@
   programs.dconf.enable = true;
 
   # Hardware-accelerated graphics (needed by niri / OpenGL apps).
+  #
+  # `package` is pinned rather than left at nixpkgs' current mesa, and this one
+  # option is the whole fix for X11 apps on this machine: /run/opengl-driver is
+  # what every GL client dlopens at runtime, so pointing it at mesa 26.2.1
+  # restores the GLX client that 26.2.4 broke. See the long note on the
+  # `nixpkgs-mesa` input in flake.nix for the bisect and for when to drop it.
+  #
+  # Nothing else moves: apps still link the current nixpkgs' libglvnd and only
+  # the vendor library behind it comes from the pin — the combination this
+  # machine has been running all along, and verified again against the new
+  # Xwayland 24.1.14 before being written down. The pinned mesa is built
+  # against glibc 2.42 while the system is on 2.44, which is the harmless
+  # direction of that skew (a library built against an older glibc runs under a
+  # newer one; the reverse is what cost niri its GPU — see modules/nixos/niri.nix).
+  #
+  # package32 matters for Steam and anything else 32-bit: leaving it on the
+  # broken mesa would fix X11 only for 64-bit clients.
   hardware.graphics = {
     enable = true;
     enable32Bit = true;
+    package = inputs.nixpkgs-mesa.legacyPackages.${pkgs.stdenv.hostPlatform.system}.mesa;
+    package32 = inputs.nixpkgs-mesa.legacyPackages.${pkgs.stdenv.hostPlatform.system}.pkgsi686Linux.mesa;
   };
 
   # Bluetooth + a few desktop conveniences.

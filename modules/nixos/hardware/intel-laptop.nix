@@ -58,8 +58,8 @@
   # in S3 for two days. This needs a swap device at least as large as RAM
   # (hosts/<name>/disko.nix) — with only zram below, hibernation silently fails
   # and the lid switch degrades to a plain suspend.
-  services.logind.lidSwitch = "suspend-then-hibernate";
-  services.logind.lidSwitchExternalPower = "suspend";
+  services.logind.settings.Login.HandleLidSwitch = "suspend-then-hibernate";
+  services.logind.settings.Login.HandleLidSwitchExternalPower = "suspend";
   systemd.sleep.settings.Sleep.HibernateDelaySec = "30min";
 
   # Out of battery should also mean hibernate, not a hard cut. upower is enabled

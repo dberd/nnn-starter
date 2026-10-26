@@ -62,7 +62,7 @@
   # Everything else (palette, wallpaper, font) arrives from the shell over
   # Auto-Sync — see the long comment in hosts/nnn-desktop/default.nix, and do
   # NOT add an `appearance` section here for the same reason.
-  programs.noctalia-greeter.settings = {
+  services.displayManager.noctalia-greeter.settings = {
     session.default = "niri";
     output = {
       name = "eDP-1";

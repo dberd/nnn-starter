@@ -709,6 +709,19 @@ in {
     };
   };
 
+  # Stylix 2026-10 added a `noctalia` target of its own, and it is the exact
+  # inverse of the arrangement this repo is built on: its hm.nix sets
+  # `theme.source = "custom"` plus a `custom_palette` built from the base16
+  # scheme, so Stylix would hand Noctalia a palette instead of Noctalia
+  # deriving one from the wallpaper and handing it to everything else
+  # (docs/theming.md). Left on, it is also a hard evaluation error — both it
+  # and `theme.source` above are plain assignments, so the two definitions
+  # conflict and no rebuild completes.
+  #
+  # Off, `source = "wallpaper"` stands and the palette still tracks the same
+  # image Stylix reads, because both point at the one wallpaper.
+  stylix.targets.noctalia.enable = false;
+
   # Noctalia draws the wallpaper — Stylix only reads the image to derive its own
   # palette, it never puts anything on screen. Noctalia wants a *directory* to
   # browse, and you want to drop new wallpapers into it from a file manager.
