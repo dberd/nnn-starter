@@ -25,7 +25,7 @@
   # into a title's Properties -> Launch Options; Steam has no global field for
   # this, so it is once per game. Everything that differs per machine is baked
   # in here, so the string never has to change. Per-title extras go before the
-  # `--`, e.g. `gamescope-run --force-grab-cursor -F fsr -- %command%`.
+  # `--`, e.g. `gamescope-run -F fsr -s 1.5 -- %command%`.
   #
   # The store path is deliberate, and is NOT interchangeable with a bare
   # `gamescope` off PATH. A bare name resolves to /run/wrappers/bin/gamescope,
@@ -74,10 +74,42 @@
       set -- gamemoderun "$@"
     fi
 
+    # Keep the pointer inside the window. gamescope asks the parent compositor
+    # for a pointer lock only when it believes the game wants relative input,
+    # and its heuristic for that is the client HIDING ITS CURSOR
+    # (--force-grab-cursor's own help text: "always use relative mouse mode
+    # instead of flipping dependent on cursor visibility"). Titles that keep a
+    # cursor up during gameplay never trip it — Arc Raiders, a UE5 title, is
+    # the one that found this — so no lock is ever requested, and on a two-panel
+    # desk the pointer walks straight off the fullscreen game onto the other
+    # monitor mid-fight.
+    #
+    # Nothing is missing on the compositor side: niri advertises both
+    # zwp_pointer_constraints_v1 and zwp_relative_pointer_manager_v1 (checked
+    # against the running binary), gamescope simply never asks. So force it
+    # always-on, which is what a fullscreen game wants regardless — gamescope
+    # takes relative motion and draws its own cursor.
+    #
+    # Default rather than a per-title flag because the failure mode is losing a
+    # fight to find out. gamescope has no --no-force-grab-cursor to pair with
+    # it, so the opt-out is an env var in the launch options, for anything that
+    # turns out to want the real pointer (absolute-position input, or reaching
+    # the second screen while the game runs):
+    #
+    #     GAMESCOPE_RUN_NO_GRAB=1 gamescope-run -- %command%
+    #
+    # This is the CURSOR only. The keyboard is deliberately left alone: -g
+    # would grab it away from niri, taking Mod+… and the layout toggle with it.
+    gs_grab=(--force-grab-cursor)
+    if [ -n "''${GAMESCOPE_RUN_NO_GRAB-}" ]; then
+      gs_grab=()
+    fi
+
     exec ${pkgs.gamescope}/bin/gamescope \
       -W ${width} -H ${height} -r ${refresh} \
       -f \
       --mangoapp \
+      "''${gs_grab[@]}" \
       "''${gs_extra[@]}" \
       -- "$@"
   '';
@@ -87,6 +119,10 @@ in {
     remotePlay.openFirewall = true;
     # Proton-GE covers titles the stock Proton doesn't.
     extraCompatPackages = [pkgs.proton-ge-bin];
+
+    # winetricks against a Steam title's prefix — non-Steam shortcuts included,
+    # which is how S.T.A.L.K.E.R. G.A.M.M.A.'s MO2 gets its Windows DLLs.
+    protontricks.enable = true;
 
     # A "Steam" entry in the greeter's session list, next to "Niri". Picking it
     # runs `gamescope --steam <args> -- steam -tenfoot -pipewire-dmabuf`:
@@ -210,6 +246,9 @@ in {
     heroic # Epic + GOG + Amazon launcher
     mangohud # in-game FPS/temp overlay, and the mangoapp gamescope uses
     legcord # lightweight Discord client
+    # Native installer/updater for S.T.A.L.K.E.R. G.A.M.M.A. (Anomaly + the
+    # modpack + MO2); the game itself then runs MO2 under Proton from Steam.
+    gamma-launcher
   ];
 
   # Note: 32-bit graphics libraries (needed by Steam) come from
