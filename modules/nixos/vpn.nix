@@ -98,6 +98,8 @@ in {
   # own NixOS documentation calls for exactly this.
   networking.firewall.checkReversePath = "loose";
 
+  networking.firewall.trustedInterfaces = [ "happ-xray" "snx-tun" ];
+
   # ── snx-rs ────────────────────────────────────────────────────────────────
   # Open-source Check Point (SNX) client. No NixOS module upstream, so the
   # daemon is wired up by hand, mirroring how it ran on the previous distro.

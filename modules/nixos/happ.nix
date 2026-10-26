@@ -1,24 +1,5 @@
 # Happ Desktop — GUI on top of real Xray-core, plus `happd`, a root daemon that
 # runs Happ's bundled sing-box for TUN mode.
-#
-# Why Happ and not Throne: the vpn entry node is VLESS+REALITY, and Throne's
-# ThroneCore is sing-box, whose REALITY client fails against it with
-# "reality verification failed" (docs/proxy.md §6). Happ speaks VLESS through
-# Xray-core itself and only uses sing-box for the TUN device.
-#
-# How it is laid out, and why it lives in /opt instead of the store:
-#
-#   The .deb is unpacked and autoPatchelf'ed into the store as usual. But the
-#   GUI resolves its own directory with QCoreApplication::applicationDirPath()
-#   (i.e. /proc/self/exe, symlinks resolved) and writes runtime geo files into
-#   <that dir>/core/routing. A store path is read-only, so the tree is copied to
-#   /opt/happ — the path upstream's own happd.service and .desktop hardcode —
-#   and run from there. The copy is refreshed only when the store path changes.
-#
-#   happd is started by systemd (not by the GUI's pkexec fallback): the GUI
-#   looks for an installed daemon, talks to it over /tmp/happd.sock, and the
-#   daemon launches sing-box as root. That keeps NixOS' read-only /usr and
-#   /usr/share/polkit-1 out of the picture.
 {
   lib,
   pkgs,
@@ -35,25 +16,23 @@
       hash = "sha256-QchsDK8YGQvOWKf2A/1GbJ4/v+8rhfg3Y1oEU0Aa/7o=";
     };
 
-    nativeBuildInputs = with pkgs; [dpkg autoPatchelfHook];
+    nativeBuildInputs = with pkgs; [ dpkg autoPatchelfHook qt6.wrapQtAppsHook ];
 
-    # What the bundled binaries and Qt libs NEED but the .deb does not ship
-    # (computed from readelf over every dynamic ELF in 4.3.0). Qt, ICU, glib,
-    # krb5, dbus, xkbcommon etc. come bundled in opt/happ/lib.
     buildInputs = with pkgs; [
-      stdenv.cc.cc.lib # libstdc++, libgcc_s
+      stdenv.cc.cc.lib
       zlib
-      libglvnd # libEGL, libGL, libGLX, libOpenGL
+      libglvnd
       fontconfig
       freetype
-      xorg.libX11 # libX11, libX11-xcb
-      xorg.libxcb
+      libx11
+      libxcb
+      xcb-util-cursor
       libgpg-error
-      e2fsprogs # libcom_err (for the bundled krb5)
+      e2fsprogs
+      qt6.qtbase
+      qt6.qtwayland
     ];
 
-    # Pulled in only by the wl-shell/ivi-shell Wayland plugins, which niri and
-    # mango never select (they use xdg-shell).
     autoPatchelfIgnoreMissingDeps = ["libQt6WlShellIntegration.so.6"];
 
     runtimeDependencies = [pkgs.openssl.out];
@@ -79,9 +58,6 @@
   };
 
   # Copy the store tree to /opt/happ when (and only when) it changed.
-  # core/routing is excluded from --delete: it holds the geo files Happ
-  # downloaded at runtime, and wiping them on every rebuild would force a
-  # re-download.
   install = pkgs.writeShellScript "happ-install" ''
     set -eu
     src=${happ}/happ
@@ -94,34 +70,46 @@
     echo "$src" > "$dst/.nix-src"
   '';
 
+  # 1. Выносим обёртку в отдельную переменную
+  happ-wrapped = pkgs.writeShellScriptBin "happ" ''
+    # Указываем, где искать разделяемые библиотеки (включая libxcb-cursor)
+    export LD_LIBRARY_PATH="/opt/happ/lib:${pkgs.xcb-util-cursor}/lib:/run/opengl-driver/lib:$LD_LIBRARY_PATH"
+    
+    # Указываем, где искать плагины Qt
+    export QT_PLUGIN_PATH="/opt/happ/lib/plugins"
+    export QT_QPA_PLATFORM_PLUGIN_PATH="/opt/happ/lib/plugins/platforms"
+    
+    # Принудительно используем XCB (X11/XWayland)
+    export QT_QPA_PLATFORM=xcb
+
+    exec /opt/happ/bin/Happ "$@"
+  '';
+
+  # 2. Теперь desktop-файл ссылается на обёртку, а не на сырой бинарник
   desktopItem = pkgs.makeDesktopItem {
     name = "happ";
     desktopName = "Happ";
-    exec = "/opt/happ/bin/Happ %u";
+    exec = "${happ-wrapped}/bin/happ %u"; # <-- Исправлено
     icon = "happ";
     categories = ["Network"];
     mimeTypes = ["application/x-happ" "x-scheme-handler/happ"];
   };
 in {
   environment.systemPackages = [
-    happ # icons + mime only; the binaries run from /opt/happ
+    happ # icons + mime only
     desktopItem
-    (pkgs.writeShellScriptBin "happ" ''exec /opt/happ/bin/Happ "$@"'')
+    happ-wrapped # <-- Добавляем обёртку в PATH
   ];
 
   systemd.services.happd = {
     description = "Happ Process Control Daemon";
     after = ["network.target"];
     wantedBy = ["multi-user.target"];
-    # A rebuild with a new version restarts the daemon, and ExecStartPre then
-    # refreshes /opt/happ before the new happd comes up.
     restartTriggers = [happ];
     serviceConfig = {
       Type = "simple";
       ExecStartPre = install;
       ExecStart = "/opt/happ/bin/happd";
-      # `always`: happd exits 0 on purpose when a newer client connects, so
-      # systemd re-execs it (upstream unit, same reason).
       Restart = "always";
       RestartSec = "5s";
       TimeoutStopSec = "10s";
