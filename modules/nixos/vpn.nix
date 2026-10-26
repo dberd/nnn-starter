@@ -98,7 +98,17 @@ in {
   # own NixOS documentation calls for exactly this.
   networking.firewall.checkReversePath = "loose";
 
-  networking.firewall.trustedInterfaces = [ "happ-xray" "snx-tun" ];
+  # Happ's TUN must be trusted, and the reason is its sing-box stack, not
+  # anything inbound from the outside. With `stack = "mixed"` TCP goes through
+  # the system stack: sing-box rewrites each outgoing connection to a listener
+  # on the TUN's own address, so the redirected SYN ARRIVES on happ-xray as
+  # input. The default firewall drops that, and every browser connection
+  # through the tunnel hangs in SYN_SENT.
+  #
+  # snx-tun is deliberately NOT here. Replies on it are already accepted as
+  # ESTABLISHED. Trusting it would expose every listening port on this machine
+  # to the whole corporate network.
+  networking.firewall.trustedInterfaces = ["happ-xray"];
 
   # ── snx-rs ────────────────────────────────────────────────────────────────
   # Open-source Check Point (SNX) client. No NixOS module upstream, so the

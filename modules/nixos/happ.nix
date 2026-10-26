@@ -73,7 +73,7 @@
   # 1. Выносим обёртку в отдельную переменную
   happ-wrapped = pkgs.writeShellScriptBin "happ" ''
     # Указываем, где искать разделяемые библиотеки (включая libxcb-cursor)
-    export LD_LIBRARY_PATH="/opt/happ/lib:${pkgs.xcb-util-cursor}/lib:/run/opengl-driver/lib:$LD_LIBRARY_PATH"
+    export LD_LIBRARY_PATH="/opt/happ/lib:${pkgs.xcb-util-cursor}/lib:/run/opengl-driver/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
     
     # Указываем, где искать плагины Qt
     export QT_PLUGIN_PATH="/opt/happ/lib/plugins"
