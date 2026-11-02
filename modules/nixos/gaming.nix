@@ -25,7 +25,7 @@
   # into a title's Properties -> Launch Options; Steam has no global field for
   # this, so it is once per game. Everything that differs per machine is baked
   # in here, so the string never has to change. Per-title extras go before the
-  # `--`, e.g. `gamescope-run -F fsr -s 1.5 -- %command%`.
+  # `--`, e.g. `gamescope-run -w 1920 -h 1080 -F fsr -- %command%`.
   #
   # The store path is deliberate, and is NOT interchangeable with a bare
   # `gamescope` off PATH. A bare name resolves to /run/wrappers/bin/gamescope,
@@ -104,6 +104,12 @@
     if [ -n "''${GAMESCOPE_RUN_NO_GRAB-}" ]; then
       gs_grab=()
     fi
+
+    # The --mangoapp overlay starts hidden; Right Shift+F12 shows/hides it.
+    # mangoapp is spawned by gamescope and inherits this. Set only here, so
+    # the Steam session and plain `mangohud %command%` keep MangoHud's
+    # defaults. A launch option that sets MANGOHUD_CONFIG itself wins.
+    export MANGOHUD_CONFIG="''${MANGOHUD_CONFIG-no_display,toggle_hud=Shift_R+F12}"
 
     exec ${pkgs.gamescope}/bin/gamescope \
       -W ${width} -H ${height} -r ${refresh} \
