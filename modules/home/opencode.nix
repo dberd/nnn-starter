@@ -30,6 +30,20 @@ in {
   programs.opencode = {
     enable = true;
     tui.theme = "matugen";
+    settings = {
+      provider.ollama = {
+        npm = "@ai-sdk/openai-compatible";
+        name = "Ollama local";
+        options.baseURL = "http://127.0.0.1:11434/v1";
+        models."qwen2.5-coder:14b" = {
+          name = "Qwen 2.5 Coder 14B";
+          limit = {
+            context = 131072;
+            output = 8192;
+          };
+        };
+      };
+    };
   };
 
   # Route it through the tunnel, for the same reason and by the same mechanism

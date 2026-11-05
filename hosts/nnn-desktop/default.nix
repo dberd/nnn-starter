@@ -3,7 +3,11 @@
 # disko.nix). The ADATA still holds the previous system and stays bootable as a
 # fallback — see docs/migrate-to-nvme.md and the limine entries in
 # ./boot-entries.nix.
-{local, ...}: {
+{
+  local,
+  pkgs,
+  ...
+}: {
   imports = [
     ./hardware-configuration.nix
     ./disko.nix
@@ -14,6 +18,25 @@
 
   networking.hostName = local.hostName;
   time.timeZone = local.timeZone;
+
+  # Local LLM backend for OpenCode. The desktop has an AMD Navi 32 GPU with
+  # 16 GiB VRAM; ROCm is the accelerated Ollama build for this card family.
+  # qwen2.5-coder:14b takes ~9 GiB VRAM (+ ~6.3 GiB for 128K context with q4_0),
+  # tested with the full native 128K context window.
+  services.ollama = {
+    enable = true;
+    package = pkgs.ollama-rocm;
+    host = "127.0.0.1";
+    environmentVariables = {
+      # Navi 32 (RX 7700/7800 XT, gfx1101) targets gfx1100 runtime
+      HSA_OVERRIDE_GFX_VERSION = "11.0.0";
+      OLLAMA_CONTEXT_LENGTH = "131072";
+      OLLAMA_NUM_PARALLEL = "1";
+      OLLAMA_MAX_LOADED_MODELS = "1";
+      OLLAMA_FLASH_ATTENTION = "1";
+      OLLAMA_KV_CACHE_TYPE = "q4_0";
+    };
+  };
 
   # Login screen geometry. The greeter runs its own tiny wlroots compositor and
   # has no way to know the layout, so it is stated here — this is what keeps the

@@ -62,6 +62,9 @@ in {
 
     # Postman alternative
     hoppscotch
+
+    # Ai tools
+    codex
   ];
 
   # `dotnet tool install -g dotnet-ef` writes into ~/.dotnet/tools, which is

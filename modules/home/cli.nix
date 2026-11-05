@@ -183,6 +183,11 @@ in {
     devenv # per-project dev environments (`use devenv` in .envrc)
   ];
 
+  # Antigravity's official installer places the `agy` binary in the user's
+  # local bin directory. Keep that directory on PATH declaratively because
+  # the generated fish config is read-only under home-manager.
+  home.sessionPath = ["$HOME/.local/bin"];
+
   # nh is a nicer frontend for nixos-rebuild + garbage collection. Point it at
   # wherever you keep this flake checked out.
   programs.nh = {
