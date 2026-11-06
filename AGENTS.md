@@ -44,3 +44,5 @@ Agents are authorized to run the following categories of commands directly for i
 1. **Autonomous Inspection:** Run read-only, discovery, and diagnostic commands proactively without asking the user for confirmation.
 2. **Safe Mutation:** Any potentially destructive operation (e.g. disk reformatting, non-reversible data deletion, forced Git pushes) must always be explicitly stated and reviewed.
 3. **Reproducibility & Modularity:** Adhere to clean modular structures for configuration files (Niri KDL, Noctalia TOML/CSS, Chezmoi templates, Shell scripts).
+
+

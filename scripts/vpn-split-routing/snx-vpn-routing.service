@@ -1,0 +1,13 @@
+[Unit]
+Description=snx-rs + Happ (sing-box) split routing fix
+After=network-online.target nss-lookup.target snx-rs.service
+Wants=network-online.target nss-lookup.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+ExecStart=/usr/local/bin/snx-vpn-routing.sh
+
+[Install]
+WantedBy=multi-user.target

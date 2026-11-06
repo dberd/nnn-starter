@@ -156,15 +156,17 @@ include "host.kdl"
      * Весь остальной внешний трафик проваливается на уровень 9000 в Happ.
 
 ### Как это переносится на CachyOS:
-1. Скрипт `snx-happ-routing.sh` и юнит `snx-happ-routing.service` уже сохранены в `Work/workspace-setup/vpn/`.
-2. После установки CachyOS:
-   ```bash
-   sudo cp ~/Work/workspace-setup/vpn/snx-happ-routing.sh /usr/local/bin/
-   sudo chmod +x /usr/local/bin/snx-happ-routing.sh
-   sudo cp ~/Work/workspace-setup/vpn/snx-happ-routing.service /etc/systemd/system/
-   sudo systemctl daemon-reload
-   sudo systemctl enable --now snx-happ-routing.service
-   ```
+В папке репозитория `scripts/vpn-split-routing/` (и в бэкапе в `vpn-split-routing/`) собран готовый пакет установки со всеми доработками из `vpn.nix`:
+```bash
+cd scripts/vpn-split-routing
+sudo ./install.sh
+```
+Скрипт автоматически:
+1. Копирует актуальный `snx-vpn-routing.sh` в `/usr/local/bin/`.
+2. Устанавливает службы `snx-vpn-routing.service` и `snx-vpn-routing-trigger.service`.
+3. Добавляет хук NetworkManager dispatcher `99-snx-vpn-routing.sh`.
+4. Настраивает `rp_filter = 2` в `/etc/sysctl.d/99-vpn-rpfilter.conf`.
+5. Включает и запускает службы.
 3. **snx-rs:** ставится штатно через AUR (`paru -S snx-rs-gui` или `snx-rs-bin`). Все библиотеки (`libglvnd`, `wayland`, `mesa`) подхватываются стандартно из системы.
 4. **Happ:** ставится из AUR (`happ-bin`) либо скачиванием официального `.deb` с распаковкой.
 

@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh split routing when snx-rs brings its tunnel up
+After=sys-subsystem-net-devices-snx\x2dtun.device
+BindsTo=sys-subsystem-net-devices-snx\x2dtun.device
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl restart snx-vpn-routing.service
+
+[Install]
+WantedBy=sys-subsystem-net-devices-snx\x2dtun.device
