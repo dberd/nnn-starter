@@ -1,0 +1,242 @@
+[audio]
+enable_sounds = false
+
+[backdrop]
+enabled = false
+
+[bar.default]
+capsule = true
+center = ["clock"]
+end = ["media", "tray", "keyboard_layout", "notes", "network", "bluetooth", "group:g3", "battery", "notifications", "control-center", "session"]
+margin_ends = 12
+padding = 18
+scale = 1.15
+start = ["launcher", "workspaces", "group:g2", "group:g1", "active_window"]
+
+[[bar.default.capsule_group]]
+accordion = false
+accordion_direction = "end"
+enabled = true
+fill = "surface_variant"
+id = "g1"
+members = ["cpu", "ram"]
+opacity = 1.0
+padding = 6.0
+
+[[bar.default.capsule_group]]
+accordion = false
+accordion_direction = "end"
+enabled = true
+fill = "surface_variant"
+id = "g2"
+members = ["wallpaper", "wallhaven"]
+opacity = 1.0
+padding = 6.0
+
+[[bar.default.capsule_group]]
+accordion = false
+accordion_direction = "end"
+enabled = true
+fill = "surface_variant"
+id = "g3"
+members = ["volume", "brightness"]
+opacity = 1.0
+padding = 6.0
+
+[battery.device."/org/freedesktop/UPower/devices/battery_hidpp_battery_0"]
+warning_threshold = 10
+
+[brightness]
+enable_ddcutil = true
+
+[control_center.calendar]
+show_events_card = false
+
+[[control_center.shortcuts]]
+type = "wifi"
+
+[[control_center.shortcuts]]
+type = "bluetooth"
+
+[[control_center.shortcuts]]
+type = "caffeine"
+
+[[control_center.shortcuts]]
+type = "nightlight"
+
+[[control_center.shortcuts]]
+type = "notification"
+
+[[control_center.shortcuts]]
+type = "power_profile"
+
+[dock]
+reserve_space = false
+smart_auto_hide = true
+
+[hot_corners.top_left]
+action = "launcher"
+
+[idle.behavior.lock]
+enabled = true
+timeout = 600
+
+[location]
+address = "Moscow, Russia"
+
+[lockscreen_widgets]
+widget_order = ["lockscreen-login-box@DP-2", "lockscreen-login-box@HDMI-A-2"]
+
+[lockscreen_widgets.widget."lockscreen-login-box@DP-2"]
+box_height = 196.0
+box_width = 720.0
+cx = 1066.6666666666667
+cy = 1080.0
+output = "DP-2"
+placement_height = 1200.0
+placement_width = 2133.3333333333335
+rotation = 0.0
+type = "login_box"
+
+[lockscreen_widgets.widget."lockscreen-login-box@DP-2".settings]
+background_color = "surface_variant"
+background_opacity = 0.88
+background_radius = 12.0
+center_password_text = false
+input_opacity = 1.0
+input_radius = 6.0
+layout = "regular"
+show_caps_lock = true
+show_keyboard_layout = true
+show_login_button = true
+show_media = true
+show_session_buttons = true
+show_unlock_hint = true
+show_weather = true
+
+[lockscreen_widgets.widget."lockscreen-login-box@HDMI-A-2"]
+box_height = 196.0
+box_width = 720.0
+cx = 960.0
+cy = 972.0
+output = "HDMI-A-2"
+placement_height = 1080.0
+placement_width = 1920.0
+rotation = 0.0
+type = "login_box"
+
+[lockscreen_widgets.widget."lockscreen-login-box@HDMI-A-2".settings]
+background_color = "surface_variant"
+background_opacity = 0.88
+background_radius = 12.0
+center_password_text = false
+input_opacity = 1.0
+input_radius = 6.0
+layout = "regular"
+show_caps_lock = true
+show_keyboard_layout = true
+show_login_button = true
+show_media = true
+show_session_buttons = true
+show_unlock_hint = true
+show_weather = true
+
+[notification]
+history_retention_hours = 4
+
+[osd]
+offset_x = 0
+offset_y = 24
+position = "bottom_center"
+
+[osd.kinds]
+keyboard_layout = false
+
+[plugin_settings."noctalia/notes"]
+extension = "md"
+notes_dir = "/home/sundial/Documents/Notes"
+panel_position = "center_right"
+
+[plugins]
+enabled = ["noctalia/wallhaven", "noctalia/notes", "noctalia/bitwarden"]
+
+[[plugins.source]]
+kind = "path"
+location = "/nix/store/ib6b9z02r4aymsypjh3rbfhhq6lxy1qh-source"
+name = "official"
+
+[shell]
+external_ip_enabled = true
+launch_apps_as_systemd_services = true
+niri_overview_type_to_launch_enabled = true
+
+[shell.greeter_sync]
+auto_sync = true
+privilege_command = "pkexec"
+
+[shell.launcher]
+auto_paste = "off"
+
+[shell.panel]
+clipboard_placement = "attached"
+floating_layer = "top"
+launcher_placement = "attached"
+launcher_position = "auto"
+open_near_click_clipboard = false
+open_near_click_control_center = false
+open_near_click_launcher = false
+open_near_click_session = false
+open_near_click_wallpaper = false
+polkit_placement = "attached"
+
+[theme]
+builtin = "Catppuccin"
+community_palette = "Kanagawa Kasumi"
+mode = "dark"
+source = "wallpaper"
+wallpaper_scheme = "m3-monochrome"
+
+[theme.templates]
+builtin_ids = ["ghostty", "gtk3", "gtk4", "mango", "niri", "cava", "btop"]
+community_ids = ["bat", "fastfetch", "fzf", "heroiclauncher", "lazygit", "obs", "opencode", "ungoogled-chromium", "vscode", "zen-browser", "neovim", "yazi", "zellij"]
+
+[wallpaper]
+directory = "/home/sundial/Pictures/wallpapers"
+transition_on_startup = true
+
+[wallpaper.default]
+path = "/home/sundial/Pictures/wallpapers/wallhaven-1pw769_2560x1440.png"
+
+[[wallpaper.favorite]]
+palette_source = "wallpaper"
+path = "/home/sundial/Pictures/wallpapers/kanagawa-wave.png"
+theme_mode = "dark"
+wallpaper_scheme = "m3-content"
+
+[wallpaper.monitors.DP-2]
+path = "/home/sundial/Pictures/wallpapers/wallhaven-1pw769_2560x1440.png"
+
+[wallpaper.monitors.HDMI-A-2]
+path = "/home/sundial/Pictures/wallpapers/wallhaven-1pw769_2560x1440.png"
+
+[widget.active_window]
+max_length = 240.0
+
+[widget.media]
+hide_when_no_media = true
+
+[widget.notes]
+type = "noctalia/notes:notes"
+
+[widget.ram]
+stat = "ram_pct"
+
+[widget.wallhaven]
+glyph = "photo-search"
+type = "noctalia/wallhaven:wallhaven"
+
+[widget.workspaces]
+hide_when_empty = true
+show_all_workspaces = false
+show_labels = false
+style = "regular"

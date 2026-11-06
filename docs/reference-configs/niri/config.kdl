@@ -1,0 +1,237 @@
+input {
+    keyboard {
+        xkb {
+            layout "us,ru"
+            model ""
+            rules ""
+            variant ""
+            options "grp:alt_shift_toggle"
+        }
+        repeat-delay 600
+        repeat-rate 25
+        track-layout "global"
+    }
+    touchpad {
+        tap
+        dwt
+        natural-scroll
+    }
+    mouse { accel-profile "flat"; }
+    warp-mouse-to-focus
+}
+output "DP-2" {
+    scale 1.200000
+    focus-at-startup
+    transform "normal"
+    position x=1920 y=0
+    mode "2560x1440@74.968000"
+}
+output "HDMI-A-2" {
+    scale 1.000000
+    transform "normal"
+    position x=0 y=0
+    mode "1920x1080@75.000000"
+}
+screenshot-path "~/Pictures/Screenshots/Screenshot from %Y-%m-%d %H-%M-%S.png"
+prefer-no-csd
+overview { workspace-shadow { off; }; }
+layout {
+    gaps 12
+    struts {
+        left 0
+        right 0
+        top 0
+        bottom 0
+    }
+    focus-ring {
+        width 2
+        active-color "#7994a9"
+        inactive-color "#00000000"
+    }
+    border { off; }
+    background-color "transparent"
+    default-column-width { proportion 0.500000; }
+    preset-column-widths {
+        proportion 0.333333
+        proportion 0.500000
+        proportion 0.666667
+    }
+    center-focused-column "never"
+    always-center-single-column
+}
+cursor {
+    xcursor-theme "Bibata-Modern-Classic"
+    xcursor-size 24
+}
+hotkey-overlay { skip-at-startup; }
+binds {
+    Alt+Tab { spawn "noctalia" "msg" "window-switcher" "hold"; }
+    Ctrl+Mod+Left { focus-monitor-left; }
+    Ctrl+Mod+Right { focus-monitor-right; }
+    Ctrl+Print { screenshot-screen; }
+    Mod+1 { focus-workspace 1; }
+    Mod+2 { focus-workspace 2; }
+    Mod+3 { focus-workspace 3; }
+    Mod+4 { focus-workspace 4; }
+    Mod+5 { focus-workspace 5; }
+    Mod+6 { focus-workspace 6; }
+    Mod+7 { focus-workspace 7; }
+    Mod+8 { focus-workspace 8; }
+    Mod+9 { focus-workspace 9; }
+    Mod+Alt+L { spawn "noctalia" "msg" "session" "lock"; }
+    Mod+B { spawn "zen-beta"; }
+    Mod+BracketLeft { consume-or-expel-window-left; }
+    Mod+BracketRight { consume-or-expel-window-right; }
+    Mod+C { center-column; }
+    Mod+Comma { spawn "noctalia" "msg" "panel-toggle" "control-center"; }
+    Mod+Ctrl+C { center-visible-columns; }
+    Mod+Ctrl+End { move-column-to-last; }
+    Mod+Ctrl+F { expand-column-to-available-width; }
+    Mod+Ctrl+H { focus-monitor-left; }
+    Mod+Ctrl+Home { move-column-to-first; }
+    Mod+Ctrl+I { move-column-to-workspace-up; }
+    Mod+Ctrl+J { focus-monitor-down; }
+    Mod+Ctrl+K { focus-monitor-up; }
+    Mod+Ctrl+L { focus-monitor-right; }
+    Mod+Ctrl+R { reset-window-height; }
+    Mod+Ctrl+Shift+Down { move-window-to-monitor-down; }
+    Mod+Ctrl+Shift+H { move-column-to-monitor-left; }
+    Mod+Ctrl+Shift+J { move-column-to-monitor-down; }
+    Mod+Ctrl+Shift+K { move-column-to-monitor-up; }
+    Mod+Ctrl+Shift+L { move-column-to-monitor-right; }
+    Mod+Ctrl+Shift+Left { move-window-to-monitor-left; }
+    Mod+Ctrl+Shift+Right { move-window-to-monitor-right; }
+    Mod+Ctrl+Shift+Up { move-window-to-monitor-up; }
+    Mod+Ctrl+U { move-column-to-workspace-down; }
+    Mod+Ctrl+WheelScrollDown cooldown-ms=150 { move-column-to-workspace-down; }
+    Mod+Ctrl+WheelScrollUp cooldown-ms=150 { move-column-to-workspace-up; }
+    Mod+D { toggle-overview; }
+    Mod+Down { focus-window-down; }
+    Mod+E { spawn "nautilus"; }
+    Mod+End { focus-column-last; }
+    Mod+Equal { set-column-width "+10%"; }
+    Mod+F { maximize-column; }
+    Mod+H { focus-column-left; }
+    Mod+Home { focus-column-first; }
+    Mod+I { focus-workspace-up; }
+    Mod+J { focus-window-down; }
+    Mod+K { focus-window-up; }
+    Mod+L { focus-column-right; }
+    Mod+Left { focus-column-left; }
+    Mod+Minus { set-column-width "-10%"; }
+    Mod+Period { expel-window-from-column; }
+    Mod+Print { screenshot-window; }
+    Mod+Q { close-window; }
+    Mod+R { switch-preset-column-width; }
+    Mod+Return { spawn "ghostty"; }
+    Mod+Right { focus-column-right; }
+    Mod+Shift+1 { move-column-to-workspace 1; }
+    Mod+Shift+2 { move-column-to-workspace 2; }
+    Mod+Shift+3 { move-column-to-workspace 3; }
+    Mod+Shift+4 { move-column-to-workspace 4; }
+    Mod+Shift+5 { move-column-to-workspace 5; }
+    Mod+Shift+6 { move-column-to-workspace 6; }
+    Mod+Shift+7 { move-column-to-workspace 7; }
+    Mod+Shift+8 { move-column-to-workspace 8; }
+    Mod+Shift+9 { move-column-to-workspace 9; }
+    Mod+Shift+Down { move-window-down; }
+    Mod+Shift+E { quit; }
+    Mod+Shift+Equal { set-window-height "+10%"; }
+    Mod+Shift+F { fullscreen-window; }
+    Mod+Shift+H { move-column-left; }
+    Mod+Shift+I { move-workspace-up; }
+    Mod+Shift+J { move-window-down; }
+    Mod+Shift+K { move-window-up; }
+    Mod+Shift+L { move-column-right; }
+    Mod+Shift+Left { move-column-left; }
+    Mod+Shift+Minus { set-window-height "-10%"; }
+    Mod+Shift+N { spawn "noctalia" "msg" "panel-toggle" "noctalia/notes:panel"; }
+    Mod+Shift+Right { move-column-right; }
+    Mod+Shift+Slash { show-hotkey-overlay; }
+    Mod+Shift+T { toggle-window-floating; }
+    Mod+Shift+U { move-workspace-down; }
+    Mod+Shift+Up { move-window-up; }
+    Mod+Shift+V { switch-focus-between-floating-and-tiling; }
+    Mod+Shift+WheelScrollDown { focus-column-right; }
+    Mod+Shift+WheelScrollUp { focus-column-left; }
+    Mod+Space { spawn "noctalia" "msg" "panel-toggle" "launcher"; }
+    Mod+T { spawn "ghostty"; }
+    Mod+U { focus-workspace-down; }
+    Mod+Up { focus-window-up; }
+    Mod+V { spawn "noctalia" "msg" "panel-toggle" "clipboard"; }
+    Mod+W { toggle-column-tabbed-display; }
+    Mod+WheelScrollDown cooldown-ms=150 { focus-workspace-down; }
+    Mod+WheelScrollUp cooldown-ms=150 { focus-workspace-up; }
+    Mod+X { spawn "noctalia" "msg" "panel-toggle" "session"; }
+    Mod+Y { spawn "noctalia" "msg" "panel-toggle" "wallpaper"; }
+    Print { screenshot; }
+    XF86AudioLowerVolume { spawn "noctalia" "msg" "volume-down"; }
+    XF86AudioMicMute { spawn "noctalia" "msg" "mic-mute"; }
+    XF86AudioMute { spawn "noctalia" "msg" "volume-mute"; }
+    XF86AudioNext { spawn "noctalia" "msg" "media" "next"; }
+    XF86AudioPlay { spawn "noctalia" "msg" "media" "toggle"; }
+    XF86AudioPrev { spawn "noctalia" "msg" "media" "previous"; }
+    XF86AudioRaiseVolume { spawn "noctalia" "msg" "volume-up"; }
+    XF86MonBrightnessDown { spawn "noctalia" "msg" "brightness-down"; }
+    XF86MonBrightnessUp { spawn "noctalia" "msg" "brightness-up"; }
+}
+spawn-at-startup "/nix/store/k62vm780jjdpiypsaqkbqx278iccfd36-ddcutil-2.2.7/bin/ddcutil" "setvcp" "10" "100" "--display" "1"
+window-rule {
+    match app-id="^steam$" title="^Steam$"
+    open-maximized true
+}
+window-rule {
+    match app-id="^steam$"
+    exclude title="^Steam$"
+    open-floating true
+}
+window-rule {
+    match app-id="^gamescope$"
+    open-on-output "DP-2"
+    open-fullscreen true
+    open-focused true
+}
+window-rule {
+    match app-id="^zen-beta$"
+    match app-id="^codium$"
+    match app-id="^DBeaver$"
+    exclude title="^Picture-in-Picture$"
+    open-maximized true
+}
+window-rule {
+    match app-id="^zen-beta$" title="^Picture-in-Picture$"
+    default-column-width { fixed 480; }
+    open-floating true
+}
+window-rule {
+    match app-id="^org\\.gnome\\.Nautilus$"
+    default-column-width { fixed 480; }
+    default-window-height { fixed 710; }
+    open-floating true
+}
+window-rule {
+    match app-id="^org\\.gnome\\.Nautilus$"
+    exclude title="^org\\.gnome\\.Nautilus$"
+    default-column-width { fixed 1200; }
+    default-window-height { fixed 760; }
+}
+window-rule {
+    match app-id="^org\\.gnome\\.FileRoller$"
+    default-column-width { fixed 900; }
+    default-window-height { fixed 600; }
+    open-floating true
+}
+window-rule {
+    match app-id="^dev\\.noctalia\\.Noctalia$"
+    default-column-width { fixed 1080; }
+    default-window-height { fixed 920; }
+    open-floating true
+}
+layer-rule {
+    match namespace="^noctalia-wallpaper$"
+    place-within-backdrop true
+}
+animations { slowdown 0.700000; }
+xwayland-satellite { path "/nix/store/rs6qv1winzfqmpy09jndx0akjrsaixv0-xwayland-satellite-0.8.3/bin/xwayland-satellite"; }
+debug { honor-xdg-activation-with-invalid-serial; }
+include optional=true "/home/sundial/.config/niri/noctalia.kdl"

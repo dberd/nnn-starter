@@ -1,0 +1,11 @@
+[plugin_store]
+sort = "updated_at_desc"
+
+[security_migrations]
+calendar_credentials_v1 = true
+
+[theme_templates]
+applied_builtin_ids = "btop cava ghostty gtk3 gtk4 mango niri"
+
+[wallpaper_panel]
+flatten = false

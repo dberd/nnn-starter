@@ -1,0 +1,134 @@
+config_version = 15
+
+[audio]
+enable_sounds = false
+
+[backdrop]
+blur_intensity = 0.0
+tint_intensity = 0.0
+
+[bar.default]
+margin_ends = 6
+
+[battery.device."/org/freedesktop/UPower/devices/battery_hidpp_battery_0"]
+warning_threshold = 10
+
+[[control_center.shortcuts]]
+type = "wifi"
+
+[[control_center.shortcuts]]
+type = "bluetooth"
+
+[[control_center.shortcuts]]
+type = "caffeine"
+
+[[control_center.shortcuts]]
+type = "notification"
+
+[[control_center.shortcuts]]
+type = "nightlight"
+
+[[control_center.shortcuts]]
+type = "power_profile"
+
+[lockscreen_widgets]
+enabled = false
+schema_version = 2
+widget_order = [ "lockscreen-login-box@DP-2", "lockscreen-login-box@HDMI-A-2" ]
+
+    [lockscreen_widgets.grid]
+    cell_size = 16
+    major_interval = 4
+    visible = true
+
+    [lockscreen_widgets.widget."lockscreen-login-box@DP-2"]
+    box_height = 196.0
+    box_width = 720.0
+    cx = 1066.5
+    cy = 1080.0
+    output = "DP-2"
+    placement_height = 1200.0
+    placement_width = 2133.0
+    rotation = 0.0
+    type = "login_box"
+
+        [lockscreen_widgets.widget."lockscreen-login-box@DP-2".settings]
+        background_color = "surface_variant"
+        background_opacity = 0.88
+        background_radius = 12.0
+        center_password_text = false
+        input_opacity = 1.0
+        input_radius = 6.0
+        layout = "regular"
+        show_caps_lock = true
+        show_keyboard_layout = true
+        show_login_button = true
+        show_media = true
+        show_session_buttons = true
+        show_unlock_hint = true
+        show_weather = true
+
+    [lockscreen_widgets.widget."lockscreen-login-box@HDMI-A-2"]
+    box_height = 196.0
+    box_width = 720.0
+    cx = 960.0
+    cy = 972.0
+    output = "HDMI-A-2"
+    placement_height = 1080.0
+    placement_width = 1920.0
+    rotation = 0.0
+    type = "login_box"
+
+        [lockscreen_widgets.widget."lockscreen-login-box@HDMI-A-2".settings]
+        background_color = "surface_variant"
+        background_opacity = 0.88
+        background_radius = 12.0
+        center_password_text = false
+        input_opacity = 1.0
+        input_radius = 6.0
+        layout = "regular"
+        show_caps_lock = true
+        show_keyboard_layout = true
+        show_login_button = true
+        show_media = true
+        show_session_buttons = true
+        show_unlock_hint = true
+        show_weather = true
+
+[plugins]
+enabled = [ "noctalia/wallhaven", "noctalia/notes", "noctalia/bitwarden" ]
+
+[shell.launcher]
+auto_paste = "off"
+fetch_exchange_rates = false
+
+[shell.panel]
+launcher_position = "auto"
+open_near_click_control_center = false
+open_near_click_launcher = false
+open_near_click_session = false
+
+[shell.screenshot]
+remember_last_region = true
+
+[theme]
+builtin = "Catppuccin"
+community_palette = "Zenbones"
+mode = "dark"
+source = "wallpaper"
+wallpaper_scheme = "m3-monochrome"
+
+[wallpaper]
+transition = [ "disc" ]
+
+    [wallpaper.default]
+    path = "/home/sundial/Pictures/wallpapers/wallhaven-oglrv9_2560x1440.png"
+
+    [wallpaper.last]
+    path = "/home/sundial/Pictures/wallpapers/wallhaven-oglrv9_2560x1440.png"
+
+    [wallpaper.monitors.DP-2]
+    path = "/home/sundial/Pictures/wallpapers/wallhaven-oglrv9_2560x1440.png"
+
+    [wallpaper.monitors.HDMI-A-2]
+    path = "/home/sundial/Pictures/wallpapers/wallhaven-oglrv9_2560x1440.png"

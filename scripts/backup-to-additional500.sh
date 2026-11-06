@@ -26,8 +26,8 @@ echo -e "\n:: 2/7 Копирование Work (без node_modules, .angular, bi
   --exclude '.cache/' \
   "$HOME/Work/" "$DEST/Work/"
 
-# 3. Сохранения игр (Lutris, Wine-префиксы, Steam compatdata)
-echo -e "\n:: 3/7 Копирование сохранений игр..."
+# 3. Сохранения игр и конфигурации модов
+echo -e "\n:: 3/6 Копирование сохранений игр и конфигураций модов..."
 mkdir -p "$DEST/GameSaves"
 
 # Явные бэкапы сейвов
@@ -38,7 +38,7 @@ if [ -d "$HOME/Games/Save_backups" ]; then
   "${RSYNC[@]}" "$HOME/Games/Save_backups/" "$DEST/GameSaves/Save_backups/"
 fi
 
-# Сейвы из префиксов ~/Games (AppData, Saved Games, STALKER)
+# Сейвы из префиксов ~/Games (AppData, Saved Games, MWC, Sekiro, AC4)
 for pfx in "$HOME/Games"/*_prefix "$HOME/Games"/sekiro "$HOME/Games"/MWC*; do
   [ -d "$pfx" ] || continue
   name=$(basename "$pfx")
@@ -57,10 +57,33 @@ for pfx in "$HOME/Games"/*_prefix "$HOME/Games"/sekiro "$HOME/Games"/MWC*; do
   fi
 done
 
-# Сейвы STALKER Anomaly
+# STALKER Anomaly / GAMMA: сейвы + профили и модлисты (modlist.txt, lockedorder.txt, plugins.txt)
 if [ -d "$HOME/Games/STALKER" ]; then
+  echo ":: Копирование сейвов, профилей и модлистов STALKER..."
   mkdir -p "$DEST/GameSaves/STALKER"
-  find "$HOME/Games/STALKER" -maxdepth 3 -type d -name "*save*" -exec rsync -a {} "$DEST/GameSaves/STALKER/" \; 2>/dev/null || true
+  
+  # Профили MO2 / GAMMA (где лежат modlist.txt и lockedorder.txt)
+  if [ -d "$HOME/Games/STALKER/GAMMA/profiles" ]; then
+    mkdir -p "$DEST/GameSaves/STALKER/GAMMA_profiles"
+    "${RSYNC[@]}" "$HOME/Games/STALKER/GAMMA/profiles/" "$DEST/GameSaves/STALKER/GAMMA_profiles/"
+  fi
+
+  # Резервные копии конфигов и модлистов
+  for cb in "$HOME/Games/STALKER"/config-backup-*; do
+    [ -d "$cb" ] || continue
+    mkdir -p "$DEST/GameSaves/STALKER/$(basename "$cb")"
+    "${RSYNC[@]}" "$cb/" "$DEST/GameSaves/STALKER/$(basename "$cb")/"
+  done
+
+  # Сейвы и настройки Anomaly (appdata/savedgames, user.ltx)
+  if [ -d "$HOME/Games/STALKER/ANOMALY/appdata" ]; then
+    mkdir -p "$DEST/GameSaves/STALKER/ANOMALY_appdata"
+    "${RSYNC[@]}" \
+      --include 'savedgames/***' \
+      --include 'user.ltx' \
+      --exclude '*' \
+      "$HOME/Games/STALKER/ANOMALY/appdata/" "$DEST/GameSaves/STALKER/ANOMALY_appdata/"
+  fi
 fi
 
 # Сейвы Steam compatdata (только AppData и Saved Games из префиксов)
@@ -72,21 +95,33 @@ find "$HOME/.local/share/Steam/steamapps/compatdata" -maxdepth 6 -type d \( -nam
   rsync -a "$d/" "$DEST/GameSaves/SteamCompatdata/$appid/$(basename "$d")/" 2>/dev/null || true
 done
 
-# 4. База и профили Lutris
-echo -e "\n:: 4/7 Копирование Lutris metadata и pga.db..."
-mkdir -p "$DEST/Lutris"
-"${RSYNC[@]}" --exclude 'runners/' --exclude 'runtime/' "$HOME/.local/share/lutris/" "$DEST/Lutris/"
-
-# 5. Ключи и авторизация (SSH, GPG, Claude)
-echo -e "\n:: 5/7 Копирование SSH, GPG, Claude..."
+# 4. Ключи, авторизация и сессии AI (SSH, GPG, Claude, Antigravity/agy)
+echo -e "\n:: 4/6 Копирование SSH, GPG, Claude и сессий Antigravity (agy)..."
 "${RSYNC[@]}" "$HOME/.ssh/" "$DEST/.ssh/"
 "${RSYNC[@]}" "$HOME/.gnupg/" "$DEST/.gnupg/"
+
 if [ -d "$HOME/.claude" ]; then
   "${RSYNC[@]}" --exclude 'cache/' "$HOME/.claude/" "$DEST/.claude/"
 fi
 
-# 6. Конфиги приложений и история
-echo -e "\n:: 6/7 Копирование конфигов (~/.config) и fish_history..."
+# Antigravity CLI сессии, базы чатов и артефакты (~/.gemini)
+if [ -d "$HOME/.gemini" ]; then
+  echo ":: Копирование сессий и базы данных Antigravity (~/.gemini)..."
+  "${RSYNC[@]}" \
+    --exclude 'cache/' \
+    --exclude 'log/' \
+    --exclude 'crashes/' \
+    "$HOME/.gemini/" "$DEST/.gemini/"
+fi
+
+# Экспорт текущего чата в человекочитаемый markdown файл
+mkdir -p "$DEST/ChatHistory"
+if [ -f "$HOME/nixos-config/docs/chat-cachyos-migration-plan.md" ]; then
+  cp -a "$HOME/nixos-config/docs/chat-cachyos-migration-plan.md" "$DEST/ChatHistory/chat-cachyos-migration-plan.md"
+fi
+
+# 5. Конфиги приложений и история
+echo -e "\n:: 5/6 Копирование конфигов (~/.config) и fish_history..."
 mkdir -p "$DEST/.config"
 for c in vesktop Element obsidian qBittorrent zen niri noctalia dbeaver; do
   if [ -d "$HOME/.config/$c" ]; then
@@ -94,13 +129,24 @@ for c in vesktop Element obsidian qBittorrent zen niri noctalia dbeaver; do
   fi
 done
 
+# Отдельно сохраняем разыменованные (настоящие текстовые) конфиги Niri и Noctalia,
+# так как в NixOS ~/.config/niri/config.kdl — это симлинк в /nix/store, который на CachyOS станет битым.
+echo ":: Сохранение эталонных текстовых конфигов Niri и Noctalia (Reference_Configs)..."
+mkdir -p "$DEST/Reference_Configs/niri" "$DEST/Reference_Configs/noctalia"
+cp -L "$HOME/.config/niri/config.kdl" "$DEST/Reference_Configs/niri/config.kdl"
+[ -f "$HOME/.config/niri/noctalia.kdl" ] && cp -a "$HOME/.config/niri/noctalia.kdl" "$DEST/Reference_Configs/niri/noctalia.kdl"
+cp -L "$HOME/.config/noctalia/config.toml" "$DEST/Reference_Configs/noctalia/config.toml"
+[ -f "$HOME/.local/state/noctalia/settings.toml" ] && cp -a "$HOME/.local/state/noctalia/settings.toml" "$DEST/Reference_Configs/noctalia/settings.toml"
+[ -f "$HOME/.local/state/noctalia/state.toml" ] && cp -a "$HOME/.local/state/noctalia/state.toml" "$DEST/Reference_Configs/noctalia/state.toml"
+[ -d "$HOME/.local/state/noctalia/plugins" ] && cp -r "$HOME/.local/state/noctalia/plugins" "$DEST/Reference_Configs/noctalia/"
+
 mkdir -p "$DEST/.local/share/fish"
 if [ -f "$HOME/.local/share/fish/fish_history" ]; then
   cp -a "$HOME/.local/share/fish/fish_history" "$DEST/.local/share/fish/"
 fi
 
-# 7. Сам репозиторий nixos-config (на всякий случай копия вместе с историей)
-echo -e "\n:: 7/7 Резервная копия репозитория nixos-config..."
+# 6. Сам репозиторий nixos-config (на всякий случай копия вместе с историей)
+echo -e "\n:: 6/6 Резервная копия репозитория nixos-config..."
 "${RSYNC[@]}" --exclude 'result' --exclude '.git/objects/pack/*.pack' "$HOME/nixos-config/" "$DEST/nixos-config/"
 
 echo -e "\n========================================================"
