@@ -22,7 +22,7 @@
   # systemd in stage 1. With LUKS this is what puts the passphrase prompt on the
   # plymouth splash instead of behind it, and it is also what makes resume from
   # the encrypted swap work in the right order: unlock, then look for the image.
-  boot.initrd.systemd.enable = true;
+  # boot.initrd.systemd.enable = true;
 
   # Kaby Lake R is Gen9. nixos-hardware's Intel GPU module installs BOTH VA-API
   # drivers when it is not told which one to use, and the old i965 one would
